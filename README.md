@@ -1,0 +1,2 @@
+# octashell
+my quickshell config.
