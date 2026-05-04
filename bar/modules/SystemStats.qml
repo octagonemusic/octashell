@@ -12,16 +12,13 @@ Rectangle {
     color: Theme.surface_container
     radius: height / 2
 
-    // ==========================================
-    // THE FIX: The Activator Pattern
-    // 1. Grab the sink and save it to the root
+    // Grab the sink and save it to the root
     property var audioNode: Pipewire.defaultAudioSink
 
-    // 2. Pass it into the tracker to "wake up" the live updates
+    // Pass sink into the tracker
     PwObjectTracker {
         objects: root.audioNode ? [root.audioNode] : []
     }
-    // ==========================================
 
     Row {
         id: row
@@ -38,7 +35,6 @@ Rectangle {
             // Icon
             Text {
                 text: {
-                    // Read directly from our "woken up" root.audioNode
                     if (!root.audioNode || !root.audioNode.audio)
                         return "";
                     if (root.audioNode.audio.muted)
@@ -57,15 +53,6 @@ Rectangle {
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 16
                 anchors.verticalCenter: parent.verticalCenter
-
-                // Click to Mute
-                TapHandler {
-                    onTapped: {
-                        if (root.audioNode && root.audioNode.audio) {
-                            root.audioNode.audio.muted = !root.audioNode.audio.muted;
-                        }
-                    }
-                }
             }
 
             // Percentage
@@ -77,27 +64,12 @@ Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
             }
 
-            // Scroll to Change Volume
-            WheelHandler {
-                onWheel: event => {
-                    if (!root.audioNode || !root.audioNode.audio)
-                        return;
-
-                    const step = 0.05;
-                    let newVol = root.audioNode.audio.volume;
-
-                    if (event.angleDelta.y > 0)
-                        newVol += step;
-                    else
-                        newVol -= step;
-
-                    // Clamp 0.0 - 1.0
-                    if (newVol > 1.0)
-                        newVol = 1.0;
-                    if (newVol < 0.0)
-                        newVol = 0.0;
-
-                    root.audioNode.audio.volume = newVol;
+            // Click to Mute
+            TapHandler {
+                onTapped: {
+                    if (root.audioNode && root.audioNode.audio) {
+                        root.audioNode.audio.muted = !root.audioNode.audio.muted;
+                    }
                 }
             }
         }
@@ -179,7 +151,6 @@ Rectangle {
                 font.pixelSize: 16
             }
         }
-
 
         // Rectangle {
         //             visible: UPower.displayDevice && UPower.displayDevice.isPresent

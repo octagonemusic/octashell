@@ -22,7 +22,7 @@ Rectangle {
 
             Rectangle {
                 id: dot
-                visible: modelData.id >= 1 && modelData.monitor.name === root.screenName
+                visible: modelData.id >= 1 && modelData.monitor?.name === root.screenName
 
                 width: {
                     if (!visible)
@@ -37,13 +37,13 @@ Rectangle {
                 radius: 10
 
                 color: {
-                    if (modelData.focused)
+                    if (modelData.focused && Theme.primary)
                         return Theme.primary;
-                    if (modelData.active)
+                    if (modelData.active && Theme.secondary_fixed)
                         return Theme.secondary_fixed;
                     if (hoverHandler.hovered)
                         return "#666666";
-                    return "#4c4c4c";
+                    return "#4c4c4c"; // Default fallback
                 }
 
                 Behavior on width {

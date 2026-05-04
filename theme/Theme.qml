@@ -5,7 +5,7 @@ import Quickshell.Io
 
 FileView {
     id: root
-    path: Quickshell.configPath("theme/colors.json")
+    path: Quickshell.shellPath("theme/colors.json")
     watchChanges: true
     onFileChanged: reload()
 
