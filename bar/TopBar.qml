@@ -12,11 +12,16 @@ Variants {
         id: mainBar
         required property var modelData
         screen: modelData
-        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.layer: WlrLayer.Overlay
         anchors {
             top: true
             left: true
             right: true
+        }
+
+        visible: {
+            let monitor = Hyprland.monitors.values.find(m => m.name === modelData.name);
+            return monitor && monitor.activeWorkspace ? !monitor.activeWorkspace.hasFullscreen : true;
         }
 
         color: "transparent"
@@ -30,6 +35,7 @@ Variants {
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
             anchors.leftMargin: 15
+            screenName: modelData.name
         }
 
         SystemStats {

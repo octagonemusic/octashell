@@ -5,7 +5,8 @@ import qs.theme
 Rectangle {
     id: root
 
-    // ... (WheelHandler and Dimensions logic remains the same) ...
+    property string screenName: ""
+
     implicitWidth: row.width + 30
     implicitHeight: row.height + 18
     color: Theme.surface_container
@@ -20,10 +21,9 @@ Rectangle {
             model: Hyprland.workspaces
 
             Rectangle {
-                id: dot // We need this ID to anchor the tooltip
-                visible: modelData.id >= 1
+                id: dot
+                visible: modelData.id >= 1 && modelData.monitor.name === root.screenName
 
-                // ... (Your standard width/height/color logic) ...
                 width: {
                     if (!visible)
                         return 0;
@@ -46,7 +46,6 @@ Rectangle {
                     return "#4c4c4c";
                 }
 
-                // ... (Animations and TapHandler) ...
                 Behavior on width {
                     NumberAnimation {
                         duration: 200
