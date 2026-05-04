@@ -18,6 +18,7 @@ Variants {
         visible: true
         WlrLayershell.exclusiveZone: -1
         WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.namespace: "quickshell-bezels"
 
         mask: Region {
             item: container

@@ -12,16 +12,12 @@ Variants {
         id: mainBar
         required property var modelData
         screen: modelData
-        WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.namespace: "quickshell-topbar"
         anchors {
             top: true
             left: true
             right: true
-        }
-
-        visible: {
-            let monitor = Hyprland.monitors.values.find(m => m.name === modelData.name);
-            return monitor && monitor.activeWorkspace ? !monitor.activeWorkspace.hasFullscreen : true;
         }
 
         color: "transparent"
