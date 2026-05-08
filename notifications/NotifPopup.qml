@@ -5,12 +5,17 @@ import QtQuick
 import Qt5Compat.GraphicalEffects
 import "../theme"
 
+/**
+ * Renders a stack of transient desktop notifications on the focused monitor.
+ */
 Variants {
+    id: root
     model: Quickshell.screens
 
-    PanelWindow {
+    delegate: PanelWindow {
         id: notificationPopup
 
+        // --- Screen & Model Configuration ---
         required property var modelData
         screen: modelData
 
@@ -19,7 +24,7 @@ Variants {
         }
 
         /**
-         * Locates and removes a notification from the local model by ID.
+         * Removes a notification from the local model by ID.
          */
         function disposeNotification(notificationId) {
             for (let i = 0; i < activeNotifications.count; i++) {
@@ -30,9 +35,14 @@ Variants {
             }
         }
 
-        // Visibility logic synchronized with monitor focus and queue presence
-        visible: (Hyprland.focusedMonitor ? modelData.name === Hyprland.focusedMonitor.name : false) && activeNotifications.count > 0
+        // --- Window State ---
+        // Logic: Visible only if monitor is focused and there are active notifications.
+        visible: {
+            const isFocused = Hyprland.focusedMonitor && modelData.name === Hyprland.focusedMonitor.name;
+            return isFocused && activeNotifications.count > 0;
+        }
 
+        // --- LayerShell Properties ---
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "notification_overlay"
         WlrLayershell.exclusionMode: ExclusionMode.Ignore
@@ -43,7 +53,6 @@ Variants {
             top: true
             right: true
         }
-
         margins {
             top: 40
             right: 5
@@ -52,12 +61,10 @@ Variants {
         implicitWidth: 390
         implicitHeight: notificationStack.implicitHeight + 40
 
+        // --- Notification Service Integration ---
         Connections {
             target: CentralNotifServer
 
-            /**
-             * Handles incoming notification signals to either update existing entries or insert new ones.
-             */
             function onNotification(notification) {
                 let existingIndex = -1;
                 for (let i = 0; i < activeNotifications.count; i++) {
@@ -77,11 +84,11 @@ Variants {
             }
         }
 
+        // --- Notification Stack Layout ---
         Column {
             id: notificationStack
             width: 350
             spacing: 12
-
             anchors {
                 top: parent.top
                 right: parent.right
@@ -95,21 +102,20 @@ Variants {
             }
         }
 
+        // --- Notification Item Delegate ---
         Component {
             id: notificationDelegate
 
             Item {
                 id: delegateContainer
-
                 width: 350
                 height: notificationCard.height + 20
                 anchors.horizontalCenter: parent.horizontalCenter
 
                 required property var notificationEntry
 
-                readonly property string applicationName: notificationEntry.appName !== "" ? notificationEntry.appName : "Notification"
-                readonly property string applicationIcon: notificationEntry.image !== "" ? notificationEntry.image : notificationEntry.appIcon
-
+                readonly property string applicationName: notificationEntry.appName || "Notification"
+                readonly property string applicationIcon: notificationEntry.image || notificationEntry.appIcon
                 property real lifeSpanProgress: 1.0
 
                 Connections {
@@ -119,9 +125,7 @@ Variants {
                     }
                 }
 
-                /**
-                 * Automatic expiration timer for transient notifications.
-                 */
+                /** Automatic expiration timer */
                 NumberAnimation {
                     id: expiryTimer
                     target: delegateContainer
@@ -130,15 +134,11 @@ Variants {
                     to: 0.0
                     duration: 5000
                     running: true
-
-                    onFinished: {
-                        if (lifeSpanProgress <= 0.01) {
-                            notificationEntry.expire();
-                        }
-                    }
+                    onFinished: if (lifeSpanProgress <= 0.01)
+                        notificationEntry.expire()
                 }
 
-                // Dynamic shadow rendering based on interaction state
+                // --- Visual Effects (Shadow) ---
                 Rectangle {
                     id: shadowSource
                     anchors.fill: notificationCard
@@ -155,8 +155,6 @@ Variants {
                     samples: 32
                     color: "#66000000"
                     verticalOffset: interactionArea.containsMouse ? 6 : 3
-                    horizontalOffset: 0
-                    spread: 0
 
                     Behavior on radius {
                         NumberAnimation {
@@ -172,17 +170,17 @@ Variants {
                     }
                 }
 
+                // --- Notification Card ---
                 Rectangle {
                     id: notificationCard
-
                     width: parent.width
                     height: layoutContent.implicitHeight + 32
                     y: 4
+                    radius: 12
+                    border.width: 1
+                    border.color: Theme.outline_variant
 
                     color: interactionArea.containsMouse ? Qt.lighter(Theme.surface_container, 1.06) : Theme.surface_container
-                    radius: 12
-                    border.color: Theme.outline_variant
-                    border.width: 1
 
                     scale: interactionArea.pressed ? 0.98 : 1.0
 
@@ -212,6 +210,7 @@ Variants {
                         anchors.centerIn: parent
                         spacing: 12
 
+                        // Header (Icon & Text)
                         Item {
                             width: parent.width
                             height: Math.max(iconWrapper.height, textStack.implicitHeight)
@@ -220,15 +219,17 @@ Variants {
                                 id: iconWrapper
                                 width: 48
                                 height: 48
-                                anchors.left: parent.left
-                                anchors.top: parent.top
+                                anchors {
+                                    left: parent.left
+                                    top: parent.top
+                                }
 
-                                // Fallback icon visual for apps without branding
+                                // Icon Fallback
                                 Rectangle {
                                     anchors.fill: parent
                                     radius: width / 2
                                     color: Theme.primary_container
-                                    visible: delegateContainer.applicationIcon === ""
+                                    visible: !delegateContainer.applicationIcon
 
                                     Text {
                                         anchors.centerIn: parent
@@ -253,7 +254,7 @@ Variants {
                                     anchors.fill: parent
                                     source: delegateContainer.applicationIcon
                                     fillMode: Image.PreserveAspectCrop
-                                    visible: delegateContainer.applicationIcon !== ""
+                                    visible: !!delegateContainer.applicationIcon
                                     layer.enabled: true
                                     layer.effect: OpacityMask {
                                         maskSource: iconMask
@@ -261,6 +262,7 @@ Variants {
                                 }
                             }
 
+                            // Text Content
                             Column {
                                 id: textStack
                                 spacing: 4
@@ -306,13 +308,13 @@ Variants {
                                 }
                             }
 
+                            // Close Action & Timer Ring
                             Rectangle {
                                 id: closeAction
                                 width: 24
                                 height: 24
                                 radius: 12
                                 color: "transparent"
-
                                 anchors {
                                     top: parent.top
                                     right: parent.right
@@ -324,23 +326,17 @@ Variants {
                                     }
                                 }
 
-                                /**
-                                 * Procedural drawing of the circular progress ring.
-                                 */
                                 Canvas {
                                     id: countdownRing
                                     anchors.fill: parent
                                     antialiasing: true
-
                                     property real visualProgress: delegateContainer.lifeSpanProgress
                                     onVisualProgressChanged: requestPaint()
 
                                     onPaint: {
                                         var ctx = getContext("2d");
                                         ctx.clearRect(0, 0, width, height);
-
-                                        var centerX = width / 2;
-                                        var centerY = height / 2;
+                                        var centerX = width / 2, centerY = height / 2;
                                         var radius = (width / 2) - 2.0;
                                         var startAngle = -Math.PI / 2;
                                         var endAngle = startAngle + (visualProgress * 2 * Math.PI);
@@ -363,7 +359,6 @@ Variants {
                                         pixelSize: 18
                                         bold: true
                                     }
-
                                     Behavior on color {
                                         ColorAnimation {
                                             duration: 150
