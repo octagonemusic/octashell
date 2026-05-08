@@ -2,68 +2,84 @@ import QtQuick
 import Quickshell.Hyprland
 import qs.theme
 
+/**
+ * A pill-style workspace switcher
+ */
 Rectangle {
     id: root
 
-    property string screenName: ""
+    // --- Configuration ---
+    property string targetMonitor: ""
 
-    implicitWidth: row.width + 30
-    implicitHeight: row.height + 18
+    readonly property int animDurationShort: 150
+    readonly property int animDurationLong: 200
+    readonly property int dotHeight: 20
+    readonly property int spacingAmount: 10
+
+    // --- Styling ---
+    implicitWidth: mainLayout.width + 30
+    implicitHeight: mainLayout.height + 18
     color: Theme.surface_container
     radius: height / 2
 
     Row {
-        id: row
+        id: mainLayout
         anchors.centerIn: parent
-        spacing: 10
+        spacing: root.spacingAmount
 
         Repeater {
             model: Hyprland.workspaces
 
-            Rectangle {
-                id: dot
-                visible: modelData.id >= 1 && modelData.monitor?.name === root.screenName
+            delegate: Rectangle {
+                id: workspaceDot
 
+                // Only show workspaces belonging to the assigned monitor
+                visible: modelData.id >= 1 && modelData.monitor?.name === root.targetMonitor
+
+                // Dynamic width based on workspace state
                 width: {
                     if (!visible)
                         return 0;
                     if (modelData.focused || modelData.active)
                         return 40;
-                    if (hoverHandler.hovered)
+                    if (dotMouseArea.hovered)
                         return 32;
                     return 24;
                 }
-                height: 20
-                radius: 10
 
+                height: root.dotHeight
+                radius: height / 2
+
+                // State-driven color selection
                 color: {
-                    if (modelData.focused && Theme.primary)
-                        return Theme.primary;
-                    if (modelData.active && Theme.secondary_fixed)
-                        return Theme.secondary_fixed;
-                    if (hoverHandler.hovered)
-                        return "#666666";
-                    return "#4c4c4c"; // Default fallback
+                    if (modelData.focused)
+                        return Theme.primary ?? "#ffffff";
+                    if (modelData.active)
+                        return Theme.secondary_fixed ?? "#aaaaaa";
+                    return dotMouseArea.hovered ? "#666666" : "#4c4c4c";
                 }
 
+                // Smooth transitions for interaction states
                 Behavior on width {
                     NumberAnimation {
-                        duration: 200
+                        duration: root.animDurationLong
                         easing.type: Easing.OutBack
                     }
                 }
+
                 Behavior on color {
                     ColorAnimation {
-                        duration: 150
+                        duration: root.animDurationShort
                     }
                 }
 
+                // Interaction Handlers
                 TapHandler {
                     onTapped: modelData.activate()
                 }
 
                 HoverHandler {
-                    id: hoverHandler
+                    id: dotMouseArea
                     cursorShape: Qt.PointingHandCursor
                 }
             }

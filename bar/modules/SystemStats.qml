@@ -3,179 +3,141 @@ import Quickshell.Services.Pipewire
 import Quickshell.Services.UPower
 import qs.theme
 
+/**
+ * A unified system status indicator for Audio (Pipewire) and Power (UPower).
+ */
 Rectangle {
     id: root
 
-    // --- PILL SHAPE & SIZE ---
-    implicitWidth: row.width + 30
-    implicitHeight: row.height + 18
+    // --- Layout Configuration ---
+    implicitWidth: contentLayout.width + 30
+    implicitHeight: contentLayout.height + 18
     color: Theme.surface_container
     radius: height / 2
 
-    // Grab the sink and save it to the root
-    property var audioNode: Pipewire.defaultAudioSink
+    // --- Audio State Management ---
+    readonly property var activeSink: Pipewire.defaultAudioSink
+    readonly property bool isMuted: activeSink?.audio?.muted ?? true
+    readonly property real volumeLevel: activeSink?.audio?.volume ?? 0.0
 
-    // Pass sink into the tracker
+    /** Ensures Pipewire sink stays reactive to external system changes. */
     PwObjectTracker {
-        objects: root.audioNode ? [root.audioNode] : []
+        objects: root.activeSink ? [root.activeSink] : []
     }
 
     Row {
-        id: row
+        id: contentLayout
         anchors.centerIn: parent
         spacing: 16
 
-        // ==========================
-        // 1. VOLUME MODULE
-        // ==========================
+        // --- Audio Module ---
         Row {
-            id: volControls
+            id: volumeModule
             spacing: 8
 
-            // Icon
             Text {
+                id: volumeIcon
+                anchors.verticalCenter: parent.verticalCenter
+                font {
+                    family: "JetBrainsMono Nerd Font"
+                    pixelSize: 16
+                }
+                color: root.isMuted ? Theme.critical : Theme.primary
+
                 text: {
-                    if (!root.audioNode || !root.audioNode.audio)
-                        return "";
-                    if (root.audioNode.audio.muted)
-                        return "";
-
-                    const vol = root.audioNode.audio.volume;
-                    if (vol >= 0.6)
-                        return "";
-                    if (vol >= 0.3)
-                        return "";
-                    return "";
+                    if (!root.activeSink?.audio)
+                        return ""; // No device
+                    if (root.isMuted)
+                        return "";           // Muted
+                    if (root.volumeLevel >= 0.6)
+                        return ""; // High
+                    if (root.volumeLevel >= 0.3)
+                        return ""; // Mid
+                    return "";                              // Low
                 }
-
-                color: (root.audioNode && root.audioNode.audio && root.audioNode.audio.muted) ? Theme.critical : Theme.primary
-
-                font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 16
-                anchors.verticalCenter: parent.verticalCenter
             }
 
-            // Percentage
             Text {
-                text: (root.audioNode && root.audioNode.audio) ? Math.round(root.audioNode.audio.volume * 100) + "%" : "--%"
-                color: Theme.on_surface
-                font.family: "Google Sans Medium"
-                font.pixelSize: 16
+                id: volumeLabel
                 anchors.verticalCenter: parent.verticalCenter
+                color: Theme.on_surface
+                font {
+                    family: "Google Sans Medium"
+                    pixelSize: 16
+                }
+                text: root.activeSink?.audio ? Math.round(root.volumeLevel * 100) + "%" : "--%"
             }
 
-            // Click to Mute
             TapHandler {
-                onTapped: {
-                    if (root.audioNode && root.audioNode.audio) {
-                        root.audioNode.audio.muted = !root.audioNode.audio.muted;
-                    }
-                }
+                onTapped: if (root.activeSink?.audio)
+                    root.activeSink.audio.muted = !root.isMuted
+                cursorShape: Qt.PointingHandCursor
             }
         }
 
-        // ==========================
-        // 2. SEPARATOR
-        // ==========================
+        // --- Separator ---
         Rectangle {
-            visible: UPower.displayDevice && UPower.displayDevice.isPresent
+            visible: batteryModule.isVisible
             width: 1
             height: 16
             color: Theme.outline_variant
             anchors.verticalCenter: parent.verticalCenter
         }
 
-        // ==========================
-        // 3. BATTERY MODULE
-        // ==========================
+        // --- Battery Module ---
         Row {
-            id: batControls
-
-            visible: UPower.displayDevice && UPower.displayDevice.isPresent
+            id: batteryModule
             spacing: 8
 
-            property var bat: UPower.displayDevice
+            // Internal logic to keep UI bindings clean
+            readonly property bool isVisible: UPower.displayDevice?.isPresent ?? false
+            readonly property real capacity: (UPower.displayDevice?.percentage ?? 0) * 100
+            readonly property bool isCharging: !UPower.onBattery
 
-            // Icon
+            visible: isVisible
+
             Text {
+                id: batteryIcon
                 anchors.verticalCenter: parent.verticalCenter
-                font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 16
-
-                // Color Logic
-                color: {
-                    if (!batControls.bat)
-                        return Theme.on_surface;
-
-                    const p = batControls.bat.percentage * 100;
-
-                    if (UPower.onBattery === false && p < 100)
-                        return Theme.critical;
-
-                    if (p <= 20)
-                        return Theme.critical;
-
-                    return Theme.primary;
+                font {
+                    family: "JetBrainsMono Nerd Font"
+                    pixelSize: 16
                 }
 
-                // Icon Symbol Logic
+                // Color logic: Alert user if charging (active state) or critically low
+                color: (batteryModule.isCharging && batteryModule.capacity < 100) || batteryModule.capacity <= 20 ? Theme.critical : Theme.primary
+
                 text: {
-                    if (!batControls.bat)
+                    if (!batteryModule.isVisible)
                         return "";
+                    if (batteryModule.isCharging && batteryModule.capacity < 100)
+                        return "";
 
-                    const p = batControls.bat.percentage * 100;
-                    const charging = (UPower.onBattery === false);
-
-                    if (charging && p < 100)
-                        return ""; // Bolt
-                    if (p >= 90)
+                    // Capacity breakpoints
+                    if (batteryModule.capacity >= 90)
                         return "󰂂";
-                    if (p >= 70)
+                    if (batteryModule.capacity >= 70)
                         return "󰂀";
-                    if (p >= 50)
+                    if (batteryModule.capacity >= 50)
                         return "󰁾";
-                    if (p >= 30)
+                    if (batteryModule.capacity >= 30)
                         return "󰁼";
-                    if (p >= 10)
+                    if (batteryModule.capacity >= 10)
                         return "󰁺";
                     return "󰂃";
                 }
             }
 
-            // Percentage Text
             Text {
+                id: batteryLabel
                 anchors.verticalCenter: parent.verticalCenter
-                text: batControls.bat ? Math.round(batControls.bat.percentage * 100) + "%  " : " "
                 color: Theme.on_surface
-                font.family: "Google Sans Medium"
-                font.pixelSize: 16
+                font {
+                    family: "Google Sans Medium"
+                    pixelSize: 16
+                }
+                text: Math.round(batteryModule.capacity) + "%"
             }
         }
-
-        // Rectangle {
-        //             visible: UPower.displayDevice && UPower.displayDevice.isPresent
-        //             width: 1
-        //             height: 16
-        //             color: Theme.outline_variant
-        //             anchors.verticalCenter: parent.verticalCenter
-        //         }
-
-        // Text {
-        //     anchors.verticalCenter: parent.verticalCenter
-        //     text: "power_settings_circle"
-        //     color: Theme.on_surface
-        //     font.family: "Material Symbols Rounded"
-        //     font.pixelSize: 30
-
-        //     font.variableAxes: {
-        //         "FILL": 1
-        //     }
-
-        //     // 1. Tell Qt NOT to snap the vectors to the pixel grid
-        //     font.hintingPreference: Font.PreferNoHinting
-
-        //     // 2. Try the Qt distance-field renderer instead of Native
-        //     renderType: Text.CurveRendering // or try Text.QtRendering if this fails
-        // }
     }
 }

@@ -1,43 +1,67 @@
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Hyprland
 import QtQuick
 import "modules"
 import qs.theme
 
+/**
+ * The primary system status bar rendered across all monitors.
+ */
 Variants {
+    id: root
     model: Quickshell.screens
 
-    PanelWindow {
+    delegate: PanelWindow {
         id: mainBar
+
+        // --- Screen Mapping ---
         required property var modelData
         screen: modelData
+
+        // --- Layer Shell Configuration ---
         WlrLayershell.layer: WlrLayer.Top
         WlrLayershell.namespace: "quickshell-topbar"
+
+        // --- Geometry & Positioning ---
         anchors {
             top: true
             left: true
             right: true
         }
 
+        // --- Visual Styling ---
         color: "transparent"
         implicitHeight: Layout.topBarHeight
 
-        Clock {
+        // --- Core Modules ---
+
+        // Workspace Switcher
+        Workspaces {
+            id: workspaceModule
+            targetMonitor: modelData.name
+
+            anchors {
+                left: parent.left
+                leftMargin: 15
+                verticalCenter: parent.verticalCenter
+            }
+        }
+
+        // Calendar
+        Calendar {
+            id: calendarModule
             anchors.centerIn: parent
         }
 
-        Workspaces {
-            anchors.left: parent.left
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.leftMargin: 15
-            screenName: modelData.name
-        }
-
+        // System Stats
         SystemStats {
-            anchors.right: parent.right
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.rightMargin: 15
+            id: statusModule
+
+            anchors {
+                right: parent.right
+                rightMargin: 15
+                verticalCenter: parent.verticalCenter
+            }
         }
     }
 }

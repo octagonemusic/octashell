@@ -6,62 +6,72 @@ import QtQuick
 import QtQuick.Effects
 import "../theme"
 
+/**
+ * Creates aesthetic rounded bezels across all connected monitors.
+ * Uses an XOR region mask and an inverted MultiEffect mask to
+ * render a solid surface with a transparent "cutout" for the workspace.
+ */
 Variants {
+    id: root
     model: Quickshell.screens
 
-    PanelWindow {
-        id: root
-        required property var modelData
+    delegate: PanelWindow {
+        id: bezelWindow
 
+        // --- Model Integration ---
+        required property var modelData
         screen: modelData
+
+        // --- Window Configuration ---
         color: "transparent"
         visible: true
-        WlrLayershell.exclusiveZone: -1
+
         WlrLayershell.layer: WlrLayer.Top
         WlrLayershell.namespace: "quickshell-bezels"
-
-        mask: Region {
-            item: container
-            intersection: Intersection.Xor
-        }
+        WlrLayershell.exclusiveZone: -1 // Passthrough; do not reserve space
 
         anchors {
             top: true
-            left: true
             bottom: true
+            left: true
             right: true
         }
 
+        // --- Input & Visual Masking ---
+        // XOR intersection ensures clicks pass through the center cutout
+        mask: Region {
+            item: effectContainer
+            intersection: Intersection.Xor
+        }
+
         Item {
-            id: container
+            id: effectContainer
             anchors.fill: parent
 
             Item {
-                id: bezel
-
+                id: bezelLayer
                 anchors.fill: parent
                 layer.enabled: true
 
-                // Drop Shadow
+                // Primary Drop Shadow for the bezel edges
                 layer.effect: MultiEffect {
                     shadowEnabled: true
                     shadowColor: "#B0000000"
                     shadowVerticalOffset: 0
                     shadowHorizontalOffset: 0
-
                     blurMax: 20
                     shadowBlur: 0.5
                 }
 
                 Rectangle {
+                    id: bezelBackground
                     anchors.fill: parent
-
                     color: Theme.surface
                     layer.enabled: true
 
-                    // Rectangle Cutout
+                    // Subtracts the cutoutShape from the solid surface
                     layer.effect: MultiEffect {
-                        maskSource: maskShapeSource
+                        maskSource: cutoutShape
                         maskEnabled: true
                         maskInverted: true
                         maskThresholdMin: 0.5
@@ -69,20 +79,27 @@ Variants {
                     }
                 }
 
-                // Mask Cutout Sape
+                /**
+                 * Cutout Definition
+                 * Defines the area where the desktop remains visible.
+                 */
                 Item {
-                    id: maskShapeSource
-
+                    id: cutoutShape
                     anchors.fill: parent
                     layer.enabled: true
-                    visible: false
+                    visible: false // Source item only
 
                     Rectangle {
+                        id: clippingRect
                         anchors.fill: parent
-                        anchors.leftMargin: Layout.sideBarWidth
-                        anchors.rightMargin: Layout.sideBarWidth
-                        anchors.topMargin: Layout.topBarHeight
-                        anchors.bottomMargin: Layout.bottomBarHeight
+
+                        // Margins
+                        anchors {
+                            leftMargin: Layout.sideBarWidth
+                            rightMargin: Layout.sideBarWidth
+                            topMargin: Layout.topBarHeight
+                            bottomMargin: Layout.bottomBarHeight
+                        }
 
                         radius: Layout.cornerRadius
                     }
