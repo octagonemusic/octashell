@@ -201,7 +201,26 @@ Variants {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: notificationEntry.dismiss()
+
+                        onClicked: {
+                            let invoked = false;
+
+                            // Check if the application provided any actions
+                            if (notificationEntry.actions) {
+                                for (let i = 0; i < notificationEntry.actions.length; i++) {
+                                    if (notificationEntry.actions[i].identifier === "default") {
+                                        notificationEntry.actions[i].invoke();
+                                        invoked = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // Fallback: If no default action exists, just dismiss
+                            if (!invoked) {
+                                notificationEntry.dismiss();
+                            }
+                        }
                     }
 
                     Column {
