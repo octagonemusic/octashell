@@ -54,8 +54,6 @@ Rectangle {
                 color: {
                     if (modelData.focused)
                         return Theme.primary ?? "#ffffff";
-                    if (modelData.active)
-                        return Theme.secondary_fixed ?? "#aaaaaa";
                     return dotMouseArea.hovered ? "#666666" : "#4c4c4c";
                 }
 
