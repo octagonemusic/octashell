@@ -10,6 +10,9 @@ import "../theme"
 PanelWindow {
     id: clipboardWindow
 
+    // Configuration
+    property string scriptPath: "$HOME/.config/quickshell/scripts/cliphist-visual.sh"
+
     implicitWidth: 600
     implicitHeight: 750
     color: "transparent"
@@ -63,19 +66,19 @@ PanelWindow {
 
     Process {
         id: fetchHistory
-        command: ["cliphist", "list"]
+        command: ["bash", "-c", clipboardWindow.scriptPath]
         stdout: StdioCollector {
             onStreamFinished: {
                 clipboardWindow.allItems = this.text.split('\n').filter(line => line.trim() !== "").map(line => {
-                    let tabIndex = line.indexOf('\t');
-                    if (tabIndex === -1)
-                        return {
-                            raw: line,
-                            display: line
-                        };
+                    let parts = line.split('\t');
+                    let id = parts[0];
+                    let display = parts[1] || "";
+                    let imagePath = parts[2] || "";
+
                     return {
-                        raw: line,
-                        display: line.substring(tabIndex + 1)
+                        raw: id + '\t' + display,
+                        display: display,
+                        imagePath: imagePath
                     };
                 });
                 updateSearch();
@@ -98,10 +101,12 @@ PanelWindow {
     Process {
         id: deleteEntry
         property string targetRaw: ""
-        command: ["sh", "-c", `echo "${targetRaw}" | cliphist delete`]
+        property string targetId: ""
+        command: ["sh", "-c", `echo "${targetRaw}" | cliphist delete && rm -f /tmp/cliphist/${targetId}.*`]
         onRunningChanged: {
             if (!running && targetRaw !== "") {
                 targetRaw = "";
+                targetId = "";
                 fetchHistory.running = true;
             }
         }
@@ -109,7 +114,7 @@ PanelWindow {
 
     Process {
         id: clearHistory
-        command: ["cliphist", "wipe"]
+        command: ["sh", "-c", "cliphist wipe && rm -rf /tmp/cliphist/*"]
         onRunningChanged: {
             if (!running) {
                 clipboardWindow.allItems = [];
@@ -283,7 +288,6 @@ PanelWindow {
                 }
             }
 
-            // --- List with Fading Effect ---
             Item {
                 id: listContainer
                 anchors.top: searchArea.bottom
@@ -304,11 +308,11 @@ PanelWindow {
                             GradientStop {
                                 position: 0.85
                                 color: "black"
-                            } // Full visibility until 85% down
+                            }
                             GradientStop {
                                 position: 1.0
                                 color: "transparent"
-                            } // Fades out completely at the margin
+                            }
                         }
                     }
                 }
@@ -317,18 +321,18 @@ PanelWindow {
                     id: listView
                     anchors.fill: parent
                     topMargin: 12
-                    bottomMargin: 24 // Added extra padding so the last item doesn't get masked out prematurely
+                    bottomMargin: 24
 
                     model: clipboardWindow.filteredItems
                     spacing: 8
-                    clip: false // Disable standard clipping so items can fade into the margin
+                    clip: false
                     highlightMoveDuration: 80
                     highlightFollowsCurrentItem: true
 
                     delegate: Item {
                         id: delegateRoot
                         width: listView.width
-                        height: 88
+                        height: modelData.imagePath !== "" ? 240 : 88
 
                         property bool isSelected: ListView.isCurrentItem
                         property bool isHovered: itemMouseArea.containsMouse
@@ -339,7 +343,9 @@ PanelWindow {
                         }
 
                         function remove() {
+                            let id = modelData.raw.split('\t')[0];
                             deleteEntry.targetRaw = modelData.raw;
+                            deleteEntry.targetId = id;
                             deleteEntry.running = true;
                         }
 
@@ -377,13 +383,46 @@ PanelWindow {
                                 color: Theme.primary
                             }
 
-                            Text {
+                            // Image Preview
+                            Image {
+                                id: imgPreview
+                                visible: modelData.imagePath !== ""
+                                source: modelData.imagePath !== "" ? "file://" + modelData.imagePath : ""
+
                                 anchors.left: parent.left
                                 anchors.right: deleteSeparator.left
                                 anchors.top: parent.top
                                 anchors.bottom: parent.bottom
                                 anchors.leftMargin: 24
                                 anchors.rightMargin: 16
+                                anchors.topMargin: 8
+                                anchors.bottomMargin: 8
+
+                                fillMode: Image.PreserveAspectFit
+                                horizontalAlignment: Image.AlignLeft
+                                asynchronous: true
+
+                                layer.enabled: true
+                                layer.effect: OpacityMask {
+                                    maskSource: Rectangle {
+                                        width: imgPreview.width
+                                        height: imgPreview.height
+                                        radius: 8
+                                    }
+                                }
+                            }
+
+                            // Content Text
+                            Text {
+                                visible: modelData.imagePath === ""
+
+                                anchors.left: parent.left
+                                anchors.right: deleteSeparator.left
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                anchors.leftMargin: 24
+                                anchors.rightMargin: 16
+
                                 text: modelData.display
                                 textFormat: Text.PlainText
                                 color: delegateRoot.isSelected ? Theme.on_secondary_container : Theme.on_surface
