@@ -2,7 +2,7 @@ import Quickshell
 import QtQuick
 import "bar"
 import "notifications"
-import "utilities"
+import "utilities/clipboard"
 import qs.services
 
 /** Main shell entry point; manages surface orchestration. */
