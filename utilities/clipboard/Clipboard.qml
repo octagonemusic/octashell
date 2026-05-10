@@ -89,19 +89,13 @@ PanelWindow {
     Process {
         id: copyToClipboard
         property string selectedItem: ""
-        command: ["sh", "-c", `echo "${selectedItem}" | cliphist decode | wl-copy`]
+        command: ["bash", "-c", 'printf "%s" "$1" | cliphist decode | wl-copy', "_", selectedItem]
         onRunningChanged: {
             if (!running && copyToClipboard.selectedItem !== "") {
                 closeMenu();
-                autoPaste.running = true;
                 copyToClipboard.selectedItem = "";
             }
         }
-    }
-
-    Process {
-        id: autoPaste
-        command: ["sh", "-c", "sleep 0.01 && wtype -M shift -k Insert -m shift"]
     }
 
     Process {
