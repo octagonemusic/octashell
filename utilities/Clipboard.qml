@@ -19,6 +19,14 @@ PanelWindow {
     WlrLayershell.namespace: "clipboard_overlay"
     exclusiveZone: -1
 
+    anchors {
+        bottom: true
+    }
+
+    margins {
+        bottom: 100
+    }
+
     property var allItems: []
     property var filteredItems: []
 
