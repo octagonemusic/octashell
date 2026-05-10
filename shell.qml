@@ -2,6 +2,7 @@ import Quickshell
 import QtQuick
 import "bar"
 import "notifications"
+import "utilities"
 import qs.services
 
 /** Main shell entry point; manages surface orchestration. */
@@ -32,5 +33,10 @@ ShellRoot {
     // Floating notification overlay
     NotifPopup {
         id: notificationOverlay
+    }
+
+    // Clipboard
+    Clipboard {
+        id: clipboardWindow
     }
 }
