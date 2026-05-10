@@ -156,7 +156,7 @@ PanelWindow {
             id: mainUi
             anchors.fill: parent
             color: Theme.surface_container
-            radius: 20
+            radius: 28 // Material 3 uses larger radii for dialogs/panels
             border.width: 1
             border.color: Theme.outline_variant
             clip: true
@@ -237,32 +237,59 @@ PanelWindow {
                 }
             }
 
-            // Search
             Item {
                 id: searchArea
                 width: parent.width
-                height: 64
+                height: 80 // Increased height for better breathing room
                 anchors.top: headerArea.bottom
+
                 TextField {
                     id: searchField
                     anchors.fill: parent
                     anchors.margins: 12
                     anchors.leftMargin: 16
                     anchors.rightMargin: 16
-                    leftPadding: 20
-                    rightPadding: 20
+
+                    leftPadding: 48
+                    rightPadding: searchField.text !== "" ? 48 : 16
+
                     font.family: "Google Sans"
-                    font.pixelSize: 16
+                    font.pixelSize: 17
                     color: Theme.on_surface
-                    placeholderText: "Search..."
-                    placeholderTextColor: Theme.outline
+                    selectionColor: Theme.primary_container
+                    selectedTextColor: Theme.on_primary_container
+
+                    placeholderText: "Search"
+                    placeholderTextColor: Theme.on_surface_variant
+
                     background: Rectangle {
-                        color: searchField.activeFocus ? Theme.surface_variant : Theme.surface_container_low
-                        radius: 20
-                        border.width: 1
-                        border.color: searchField.activeFocus ? Theme.primary : "transparent"
+                        id: searchBg
+                        // M3 Expressive: Use a deeper container color when focused
+                        color: searchField.activeFocus ? Theme.surface_container_highest : Theme.surface_container_high
+                        radius: 28 // Fully pill-shaped or highly rounded
+
+                        border.width: searchField.activeFocus ? 2 : 0
+                        border.color: Theme.outline_variant
+
+                        Behavior on color {
+                            ColorAnimation {
+                                duration: 200
+                            }
+                        }
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.leftMargin: 16
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "search"
+                            font.family: "Material Symbols Rounded"
+                            font.pixelSize: 22
+                            color: searchField.activeFocus ? Theme.primary : Theme.on_surface_variant
+                        }
                     }
+
                     onTextChanged: updateSearch()
+
                     Keys.onPressed: event => {
                         if (event.key === Qt.Key_Down) {
                             listView.incrementCurrentIndex();
@@ -279,12 +306,6 @@ PanelWindow {
                             event.accepted = true;
                         }
                     }
-                }
-                Rectangle {
-                    width: parent.width
-                    height: 1
-                    color: Theme.surface_variant
-                    anchors.bottom: parent.bottom
                 }
             }
 
@@ -383,12 +404,10 @@ PanelWindow {
                                 color: Theme.primary
                             }
 
-                            // Image Preview
                             Image {
                                 id: imgPreview
                                 visible: modelData.imagePath !== ""
                                 source: modelData.imagePath !== "" ? "file://" + modelData.imagePath : ""
-
                                 anchors.left: parent.left
                                 anchors.right: deleteSeparator.left
                                 anchors.top: parent.top
@@ -397,7 +416,6 @@ PanelWindow {
                                 anchors.rightMargin: 16
                                 anchors.topMargin: 8
                                 anchors.bottomMargin: 8
-
                                 fillMode: Image.PreserveAspectFit
                                 horizontalAlignment: Image.AlignLeft
                                 asynchronous: true
@@ -412,17 +430,14 @@ PanelWindow {
                                 }
                             }
 
-                            // Content Text
                             Text {
                                 visible: modelData.imagePath === ""
-
                                 anchors.left: parent.left
                                 anchors.right: deleteSeparator.left
                                 anchors.top: parent.top
                                 anchors.bottom: parent.bottom
                                 anchors.leftMargin: 24
                                 anchors.rightMargin: 16
-
                                 text: modelData.display
                                 textFormat: Text.PlainText
                                 color: delegateRoot.isSelected ? Theme.on_secondary_container : Theme.on_surface
@@ -506,7 +521,7 @@ PanelWindow {
             Text {
                 id: emptyMessage
                 anchors.centerIn: listContainer
-                text: clipboardWindow.allItems.length === 0 ? "Clipboard is empty :)" : "No results found :("
+                text: clipboardWindow.allItems.length === 0 ? "Clipboard is empty :(" : "No results found :/"
                 visible: clipboardWindow.filteredItems.length === 0
                 color: Theme.on_surface_variant
                 font.family: "Google Sans Medium"
