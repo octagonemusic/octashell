@@ -129,6 +129,7 @@ PanelWindow {
         id: delegateContainer
         anchors.fill: parent
         anchors.margins: 30
+
         DropShadow {
             anchors.fill: mainUi
             source: mainUi
@@ -148,13 +149,17 @@ PanelWindow {
             clip: true
             focus: true
             Keys.onPressed: event => {
-                if (event.key === Qt.Key_Escape || event.key === Qt.Key_X || event.key === Qt.Key_H)
+                if (event.key === Qt.Key_Escape || event.key === Qt.Key_H) {
                     closeMenu();
-                else if (event.key === Qt.Key_Down || event.key === Qt.Key_J)
+                } else if (event.key === Qt.Key_X) {
+                    if (listView.currentItem) {
+                        listView.currentItem.remove();
+                    }
+                } else if (event.key === Qt.Key_Down || event.key === Qt.Key_J) {
                     listView.incrementCurrentIndex();
-                else if (event.key === Qt.Key_Up || event.key === Qt.Key_K)
+                } else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) {
                     listView.decrementCurrentIndex();
-                else if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return || event.key === Qt.Key_L) {
+                } else if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return || event.key === Qt.Key_L) {
                     if (listView.currentItem)
                         listView.currentItem.select();
                 } else if (event.key === Qt.Key_Slash) {
@@ -271,161 +276,182 @@ PanelWindow {
                 }
             }
 
-            // List
-            ListView {
-                id: listView
+            // --- List with Fading Effect ---
+            Item {
+                id: listContainer
                 anchors.top: searchArea.bottom
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
                 anchors.right: parent.right
-                topMargin: 12
-                bottomMargin: 12
 
-                model: clipboardWindow.filteredItems
-                spacing: 8
-                clip: true
-                highlightMoveDuration: 80
-                highlightFollowsCurrentItem: true
-
-                delegate: Item {
-                    id: delegateRoot
-                    width: listView.width
-                    height: 88
-
-                    property bool isSelected: ListView.isCurrentItem
-                    property bool isHovered: itemMouseArea.containsMouse
-
-                    // Fix: Moved functions up to the delegate root so listView.currentItem.select() works
-                    function select() {
-                        copyToClipboard.selectedItem = modelData.raw;
-                        copyToClipboard.running = true;
-                    }
-
-                    function remove() {
-                        deleteEntry.targetRaw = modelData.raw;
-                        deleteEntry.running = true;
-                    }
-
-                    Rectangle {
-                        id: itemBox
-                        anchors.centerIn: parent
-                        width: parent.width - 32
-                        height: parent.height
-                        radius: 16
-
-                        scale: itemMouseArea.pressed ? 0.97 : (delegateRoot.isSelected || delegateRoot.isHovered ? 1.015 : 1.0)
-                        Behavior on scale {
-                            NumberAnimation {
-                                duration: 200
-                                easing.type: Easing.OutBack
+                layer.enabled: true
+                layer.effect: OpacityMask {
+                    maskSource: LinearGradient {
+                        width: listContainer.width
+                        height: listContainer.height
+                        gradient: Gradient {
+                            GradientStop {
+                                position: 0.0
+                                color: "black"
                             }
+                            GradientStop {
+                                position: 0.85
+                                color: "black"
+                            } // Full visibility until 85% down
+                            GradientStop {
+                                position: 1.0
+                                color: "transparent"
+                            } // Fades out completely at the margin
+                        }
+                    }
+                }
+
+                ListView {
+                    id: listView
+                    anchors.fill: parent
+                    topMargin: 12
+                    bottomMargin: 24 // Added extra padding so the last item doesn't get masked out prematurely
+
+                    model: clipboardWindow.filteredItems
+                    spacing: 8
+                    clip: false // Disable standard clipping so items can fade into the margin
+                    highlightMoveDuration: 80
+                    highlightFollowsCurrentItem: true
+
+                    delegate: Item {
+                        id: delegateRoot
+                        width: listView.width
+                        height: 88
+
+                        property bool isSelected: ListView.isCurrentItem
+                        property bool isHovered: itemMouseArea.containsMouse
+
+                        function select() {
+                            copyToClipboard.selectedItem = modelData.raw;
+                            copyToClipboard.running = true;
                         }
 
-                        color: delegateRoot.isSelected ? Theme.secondary_container : (delegateRoot.isHovered ? Qt.lighter(Theme.surface_container_low, 1.08) : Theme.surface_container_low)
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: 150
-                            }
+                        function remove() {
+                            deleteEntry.targetRaw = modelData.raw;
+                            deleteEntry.running = true;
                         }
 
                         Rectangle {
-                            id: activeIndicator
-                            width: 4
-                            height: delegateRoot.isSelected ? parent.height * 0.45 : 0
-                            opacity: delegateRoot.isSelected ? 1.0 : 0.0
-                            anchors.left: parent.left
-                            anchors.leftMargin: 4
-                            anchors.verticalCenter: parent.verticalCenter
-                            radius: 2
-                            color: Theme.primary
-                        }
+                            id: itemBox
+                            anchors.centerIn: parent
+                            width: parent.width - 32
+                            height: parent.height
+                            radius: 16
 
-                        Text {
-                            anchors.left: parent.left
-                            anchors.right: deleteSeparator.left
-                            anchors.top: parent.top
-                            anchors.bottom: parent.bottom
-                            anchors.leftMargin: 24
-                            anchors.rightMargin: 16
-                            text: modelData.display
-                            textFormat: Text.PlainText
-                            color: delegateRoot.isSelected ? Theme.on_secondary_container : Theme.on_surface
-                            verticalAlignment: Text.AlignVCenter
-                            elide: Text.ElideRight
-                            font {
-                                family: "Google Sans Medium"
-                                pixelSize: 16
+                            scale: itemMouseArea.pressed ? 0.97 : (delegateRoot.isSelected || delegateRoot.isHovered ? 1.015 : 1.0)
+                            Behavior on scale {
+                                NumberAnimation {
+                                    duration: 200
+                                    easing.type: Easing.OutBack
+                                }
                             }
-                        }
 
-                        // --- Separator ---
-                        Rectangle {
-                            id: deleteSeparator
-                            width: 1
-                            height: 40
-                            anchors.right: deleteIconBtn.left
-                            anchors.rightMargin: 12
-                            anchors.verticalCenter: parent.verticalCenter
-                            color: delegateRoot.isSelected ? Theme.on_secondary_container : Theme.outline_variant
-                            opacity: delegateRoot.isSelected ? 0.5 : 0.3
-
+                            color: delegateRoot.isSelected ? Theme.secondary_container : (delegateRoot.isHovered ? Qt.lighter(Theme.surface_container_low, 1.08) : Theme.surface_container_low)
                             Behavior on color {
                                 ColorAnimation {
                                     duration: 150
                                 }
                             }
-                        }
 
-                        // --- Delete Button ---
-                        Rectangle {
-                            id: deleteIconBtn
-                            z: 1
-                            width: 44
-                            height: 44
-                            radius: 22
-                            anchors.right: parent.right
-                            anchors.rightMargin: 16
-                            anchors.verticalCenter: parent.verticalCenter
-
-                            color: deleteMouseArea.containsMouse ? Theme.critical : "transparent"
-
-                            scale: deleteMouseArea.pressed ? 0.85 : (deleteMouseArea.containsMouse ? 1.1 : 1.0)
-                            Behavior on scale {
-                                NumberAnimation {
-                                    duration: 150
-                                    easing.type: Easing.OutBack
-                                }
+                            Rectangle {
+                                id: activeIndicator
+                                width: 4
+                                height: delegateRoot.isSelected ? parent.height * 0.45 : 0
+                                opacity: delegateRoot.isSelected ? 1.0 : 0.0
+                                anchors.left: parent.left
+                                anchors.leftMargin: 4
+                                anchors.verticalCenter: parent.verticalCenter
+                                radius: 2
+                                color: Theme.primary
                             }
 
                             Text {
-                                anchors.centerIn: parent
-                                text: "delete"
-                                font.family: "Material Symbols Rounded"
-                                font.pixelSize: 22
-                                font.bold: true
-                                color: deleteMouseArea.containsMouse ? Theme.on_critical : Theme.critical
+                                anchors.left: parent.left
+                                anchors.right: deleteSeparator.left
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                anchors.leftMargin: 24
+                                anchors.rightMargin: 16
+                                text: modelData.display
+                                textFormat: Text.PlainText
+                                color: delegateRoot.isSelected ? Theme.on_secondary_container : Theme.on_surface
+                                verticalAlignment: Text.AlignVCenter
+                                elide: Text.ElideRight
+                                font {
+                                    family: "Google Sans Medium"
+                                    pixelSize: 16
+                                }
+                            }
+
+                            Rectangle {
+                                id: deleteSeparator
+                                width: 1
+                                height: 40
+                                anchors.right: deleteIconBtn.left
+                                anchors.rightMargin: 12
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: delegateRoot.isSelected ? Theme.on_secondary_container : Theme.outline_variant
+                                opacity: delegateRoot.isSelected ? 0.5 : 0.3
+                                Behavior on color {
+                                    ColorAnimation {
+                                        duration: 150
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                id: deleteIconBtn
+                                z: 1
+                                width: 44
+                                height: 44
+                                radius: 22
+                                anchors.right: parent.right
+                                anchors.rightMargin: 16
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: deleteMouseArea.containsMouse ? Theme.critical : "transparent"
+                                scale: deleteMouseArea.pressed ? 0.85 : (deleteMouseArea.containsMouse ? 1.1 : 1.0)
+                                Behavior on scale {
+                                    NumberAnimation {
+                                        duration: 150
+                                        easing.type: Easing.OutBack
+                                    }
+                                }
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "delete"
+                                    font.family: "Material Symbols Rounded"
+                                    font.pixelSize: 22
+                                    font.bold: true
+                                    color: deleteMouseArea.containsMouse ? Theme.on_critical : Theme.critical
+                                }
+
+                                MouseArea {
+                                    id: deleteMouseArea
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    preventStealing: true
+                                    onClicked: mouse => {
+                                        mouse.accepted = true;
+                                        delegateRoot.remove();
+                                    }
+                                }
                             }
 
                             MouseArea {
-                                id: deleteMouseArea
+                                id: itemMouseArea
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                preventStealing: true
-                                onClicked: mouse => {
-                                    mouse.accepted = true;
-                                    delegateRoot.remove(); // Fix: updated target
-                                }
+                                onEntered: listView.currentIndex = index
+                                onClicked: delegateRoot.select()
                             }
-                        }
-
-                        MouseArea {
-                            id: itemMouseArea
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onEntered: listView.currentIndex = index
-                            onClicked: delegateRoot.select() // Fix: updated target
                         }
                     }
                 }
@@ -433,7 +459,7 @@ PanelWindow {
 
             Text {
                 id: emptyMessage
-                anchors.centerIn: listView
+                anchors.centerIn: listContainer
                 text: clipboardWindow.allItems.length === 0 ? "Clipboard is empty :)" : "No results found :("
                 visible: clipboardWindow.filteredItems.length === 0
                 color: Theme.on_surface_variant
