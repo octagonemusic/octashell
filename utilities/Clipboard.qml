@@ -191,8 +191,7 @@ PanelWindow {
                     color: Theme.on_surface
                     font {
                         family: "Google Sans Medium"
-                        pixelSize: 22
-                        bold: true
+                        pixelSize: 26
                     }
                 }
                 Rectangle {
@@ -220,7 +219,7 @@ PanelWindow {
                         color: clearMouseArea.containsMouse ? Theme.on_critical : Theme.on_surface_variant
                         font {
                             family: "Google Sans Medium"
-                            pixelSize: 14
+                            pixelSize: 16
                         }
                     }
                     MouseArea {
