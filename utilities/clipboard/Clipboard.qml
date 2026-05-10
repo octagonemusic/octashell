@@ -102,7 +102,7 @@ PanelWindow {
         id: deleteEntry
         property string targetRaw: ""
         property string targetId: ""
-        command: ["sh", "-c", `echo "${targetRaw}" | cliphist delete && rm -f /tmp/cliphist/${targetId}.*`]
+        command: ["bash", "-c", 'printf "%s" "$1" | cliphist delete && rm -f /tmp/cliphist/"$2".*', "_", targetRaw, targetId]
         onRunningChanged: {
             if (!running && targetRaw !== "") {
                 targetRaw = "";
