@@ -1,5 +1,9 @@
 # octashell
 
+| | |
+| :---: | :---: |
+| ![Theme Variant 1](screenshots/preview1.jpeg) | ![Theme Variant 2](screenshots/preview2.jpeg) |
+
 hii everyone this is my quickshell config :)
 
 im trying to still learn QML and quickshell and how everything else works and update it as i go in this project. im trying to follow a simple and yet understandable structure in the hopes that people will be able to follow this in the future to be able to make their own shell using quickshell by using mine as an inspiration and a tutorial :)
