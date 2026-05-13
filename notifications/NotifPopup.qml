@@ -12,6 +12,9 @@ Variants {
     id: root
     model: Quickshell.screens
 
+    // track hovered state of notification
+    property int hoveredNotificationId: -1
+
     delegate: PanelWindow {
         id: notificationPopup
 
@@ -36,7 +39,6 @@ Variants {
         }
 
         // --- Window State ---
-        // Logic: Visible only if monitor is focused and there are active notifications.
         visible: {
             const isFocused = Hyprland.focusedMonitor && modelData.name === Hyprland.focusedMonitor.name;
             return isFocused && activeNotifications.count > 0;
@@ -134,8 +136,16 @@ Variants {
                     to: 0.0
                     duration: 5000
                     running: true
-                    onFinished: if (lifeSpanProgress <= 0.01)
-                        notificationEntry.expire()
+
+                    paused: root.hoveredNotificationId === notificationEntry.id
+
+                    onFinished: {
+                        if (lifeSpanProgress <= 0.01) {
+                            if (notificationPopup.visible) {
+                                notificationEntry.expire();
+                            }
+                        }
+                    }
                 }
 
                 // --- Visual Effects (Shadow) ---
@@ -181,7 +191,6 @@ Variants {
                     border.color: Theme.outline_variant
 
                     color: interactionArea.containsMouse ? Qt.lighter(Theme.surface_container, 1.06) : Theme.surface_container
-
                     scale: interactionArea.pressed ? 0.98 : 1.0
 
                     Behavior on color {
@@ -202,10 +211,17 @@ Variants {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
 
+                        // Update the global state when hovered/unhovered
+                        onEntered: root.hoveredNotificationId = notificationEntry.id
+                        onExited: {
+                            if (root.hoveredNotificationId === notificationEntry.id) {
+                                root.hoveredNotificationId = -1;
+                            }
+                        }
+
                         onClicked: {
                             let invoked = false;
 
-                            // Check if the application provided any actions
                             if (notificationEntry.actions) {
                                 for (let i = 0; i < notificationEntry.actions.length; i++) {
                                     if (notificationEntry.actions[i].identifier === "default") {
@@ -216,7 +232,6 @@ Variants {
                                 }
                             }
 
-                            // Fallback: If no default action exists, just dismiss
                             if (!invoked) {
                                 notificationEntry.dismiss();
                             }
@@ -229,7 +244,6 @@ Variants {
                         anchors.centerIn: parent
                         spacing: 12
 
-                        // Header (Icon & Text)
                         Item {
                             width: parent.width
                             height: Math.max(iconWrapper.height, textStack.implicitHeight)
@@ -243,7 +257,6 @@ Variants {
                                     top: parent.top
                                 }
 
-                                // Icon Fallback
                                 Rectangle {
                                     anchors.fill: parent
                                     radius: width / 2
@@ -281,7 +294,6 @@ Variants {
                                 }
                             }
 
-                            // Text Content
                             Column {
                                 id: textStack
                                 spacing: 4
@@ -302,7 +314,6 @@ Variants {
                                     }
                                     width: parent.width
                                 }
-
                                 Text {
                                     text: notificationEntry.summary
                                     color: Theme.on_surface
@@ -314,7 +325,6 @@ Variants {
                                     width: parent.width
                                     elide: Text.ElideRight
                                 }
-
                                 Text {
                                     text: notificationEntry.body
                                     color: Theme.on_surface_variant
@@ -327,7 +337,6 @@ Variants {
                                 }
                             }
 
-                            // Close Action & Timer Ring
                             Rectangle {
                                 id: closeAction
                                 width: 24
