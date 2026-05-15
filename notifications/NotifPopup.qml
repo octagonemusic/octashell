@@ -134,7 +134,7 @@ Variants {
                     property: "lifeSpanProgress"
                     from: 1.0
                     to: 0.0
-                    duration: 5000
+                    duration: 7000
                     running: true
 
                     paused: root.hoveredNotificationId === notificationEntry.id
