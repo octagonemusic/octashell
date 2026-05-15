@@ -11,7 +11,7 @@ PanelWindow {
     id: clipboardWindow
 
     // Configuration
-    property string scriptPath: "$HOME/.config/quickshell/scripts/cliphist-visual.sh"
+    property string scriptPath: Quickshell.shellPath("scripts/cliphist-visual.sh")
 
     implicitWidth: 600
     implicitHeight: 750
