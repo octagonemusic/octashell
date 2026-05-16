@@ -2,7 +2,8 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
 import QtQuick
-import Qt5Compat.GraphicalEffects
+import QtQuick.Effects
+import QtQuick.Shapes
 import "../theme"
 
 /**
@@ -148,38 +149,6 @@ Variants {
                     }
                 }
 
-                // --- Visual Effects (Shadow) ---
-                Rectangle {
-                    id: shadowSource
-                    anchors.fill: notificationCard
-                    anchors.margins: -1
-                    radius: notificationCard.radius
-                    color: notificationCard.color
-                    visible: false
-                }
-
-                DropShadow {
-                    anchors.fill: shadowSource
-                    source: shadowSource
-                    radius: interactionArea.containsMouse ? 20 : 12
-                    samples: 32
-                    color: "#66000000"
-                    verticalOffset: interactionArea.containsMouse ? 6 : 3
-
-                    Behavior on radius {
-                        NumberAnimation {
-                            duration: 200
-                            easing.type: Easing.OutCubic
-                        }
-                    }
-                    Behavior on verticalOffset {
-                        NumberAnimation {
-                            duration: 200
-                            easing.type: Easing.OutCubic
-                        }
-                    }
-                }
-
                 // --- Notification Card ---
                 Rectangle {
                     id: notificationCard
@@ -190,18 +159,42 @@ Variants {
                     border.width: 1
                     border.color: Theme.outline_variant
 
-                    color: interactionArea.containsMouse ? Qt.lighter(Theme.surface_container, 1.06) : Theme.surface_container
-                    scale: interactionArea.pressed ? 0.98 : 1.0
+                    color: interactionArea.containsMouse ? Qt.lighter(Theme.surface_container, 1.04) : Theme.surface_container
+                    scale: interactionArea.pressed ? 0.96 : 1.0
+
+                    layer.enabled: true
+                    layer.effect: MultiEffect {
+                        shadowEnabled: true
+                        shadowColor: "#40000000"
+
+                        blurMax: 32
+                        shadowBlur: interactionArea.containsMouse ? 0.5 : 0.2 // Expressive dynamic shadow
+                        shadowVerticalOffset: interactionArea.containsMouse ? 6 : 2
+
+                        Behavior on shadowBlur {
+                            NumberAnimation {
+                                duration: 250
+                                easing.type: Easing.OutBack
+                            }
+                        }
+                        Behavior on shadowVerticalOffset {
+                            NumberAnimation {
+                                duration: 250
+                                easing.type: Easing.OutBack
+                            }
+                        }
+                    }
 
                     Behavior on color {
                         ColorAnimation {
                             duration: 150
                         }
                     }
+
                     Behavior on scale {
                         NumberAnimation {
-                            duration: 100
-                            easing.type: Easing.OutCubic
+                            duration: 200
+                            easing.type: Easing.OutBack
                         }
                     }
 
@@ -211,7 +204,6 @@ Variants {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
 
-                        // Update the global state when hovered/unhovered
                         onEntered: root.hoveredNotificationId = notificationEntry.id
                         onExited: {
                             if (root.hoveredNotificationId === notificationEntry.id) {
@@ -259,7 +251,7 @@ Variants {
 
                                 Rectangle {
                                     anchors.fill: parent
-                                    radius: width / 2
+                                    radius: width / 2 // Perfect circle
                                     color: Theme.primary_container
                                     visible: !delegateContainer.applicationIcon
 
@@ -275,21 +267,21 @@ Variants {
                                     }
                                 }
 
-                                Rectangle {
-                                    id: iconMask
-                                    anchors.fill: parent
-                                    radius: width / 2
-                                    visible: false
-                                }
-
                                 Image {
+                                    id: iconSrc
                                     anchors.fill: parent
                                     source: delegateContainer.applicationIcon
                                     fillMode: Image.PreserveAspectCrop
                                     visible: !!delegateContainer.applicationIcon
+
                                     layer.enabled: true
-                                    layer.effect: OpacityMask {
-                                        maskSource: iconMask
+                                    layer.effect: MultiEffect {
+                                        maskEnabled: true
+                                        maskSource: Rectangle {
+                                            width: iconSrc.width
+                                            height: iconSrc.height
+                                            radius: width / 2
+                                        }
                                     }
                                 }
                             }
@@ -339,9 +331,9 @@ Variants {
 
                             Rectangle {
                                 id: closeAction
-                                width: 24
-                                height: 24
-                                radius: 12
+                                width: 28
+                                height: 28
+                                radius: 14
                                 color: "transparent"
                                 anchors {
                                     top: parent.top
@@ -354,42 +346,60 @@ Variants {
                                     }
                                 }
 
-                                Canvas {
+                                Shape {
                                     id: countdownRing
                                     anchors.fill: parent
                                     antialiasing: true
-                                    property real visualProgress: delegateContainer.lifeSpanProgress
-                                    onVisualProgressChanged: requestPaint()
+                                    preferredRendererType: Shape.CurveRenderer
 
-                                    onPaint: {
-                                        var ctx = getContext("2d");
-                                        ctx.clearRect(0, 0, width, height);
-                                        var centerX = width / 2, centerY = height / 2;
-                                        var radius = (width / 2) - 2.0;
-                                        var startAngle = -Math.PI / 2;
-                                        var endAngle = startAngle + (visualProgress * 2 * Math.PI);
+                                    ShapePath {
+                                        fillColor: "transparent"
+                                        strokeColor: Theme.critical
+                                        strokeWidth: 3 // Thicker ring
+                                        capStyle: ShapePath.RoundCap
 
-                                        ctx.beginPath();
-                                        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
-                                        ctx.lineWidth = 3;
-                                        ctx.strokeStyle = Theme.critical;
-                                        ctx.lineCap = "round";
-                                        ctx.stroke();
+                                        PathAngleArc {
+                                            centerX: closeAction.width / 2
+                                            centerY: closeAction.height / 2
+                                            // Adjusted padding to 2.5 to prevent the thicker stroke from clipping outside the bounds
+                                            radiusX: (closeAction.width / 2) - 2.5
+                                            radiusY: (closeAction.height / 2) - 2.5
+                                            startAngle: -90 // Centered at top apex
+                                            sweepAngle: delegateContainer.lifeSpanProgress * 360
+                                        }
                                     }
                                 }
 
-                                Text {
+                                Item {
                                     anchors.centerIn: parent
-                                    anchors.verticalCenterOffset: -1
-                                    text: "×"
-                                    color: closeMouseArea.containsMouse ? Theme.on_surface : Theme.on_surface_variant
-                                    font {
-                                        pixelSize: 18
-                                        bold: true
+                                    width: 12
+                                    height: 12
+                                    rotation: 45
+
+                                    Rectangle {
+                                        width: 2
+                                        height: parent.height
+                                        anchors.centerIn: parent
+                                        radius: 1
+                                        color: closeMouseArea.containsMouse ? Theme.on_surface : Theme.on_surface_variant
+                                        antialiasing: true
+                                        Behavior on color {
+                                            ColorAnimation {
+                                                duration: 150
+                                            }
+                                        }
                                     }
-                                    Behavior on color {
-                                        ColorAnimation {
-                                            duration: 150
+                                    Rectangle {
+                                        width: parent.width
+                                        height: 2
+                                        anchors.centerIn: parent
+                                        radius: 1
+                                        color: closeMouseArea.containsMouse ? Theme.on_surface : Theme.on_surface_variant
+                                        antialiasing: true
+                                        Behavior on color {
+                                            ColorAnimation {
+                                                duration: 150
+                                            }
                                         }
                                     }
                                 }
@@ -399,7 +409,7 @@ Variants {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
-                                    onEntered: closeAction.color = Qt.lighter(Theme.surface_variant, 1.05)
+                                    onEntered: closeAction.color = Qt.rgba(Theme.surface_variant.r, Theme.surface_variant.g, Theme.surface_variant.b, 0.4)
                                     onExited: closeAction.color = "transparent"
                                     onClicked: event => {
                                         event.accepted = true;
