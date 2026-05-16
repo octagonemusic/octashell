@@ -343,7 +343,12 @@ PanelWindow {
 
                 ListView {
                     id: categoryList
-                    anchors.fill: parent
+                    anchors {
+                        top: parent.top
+                        bottom: parent.bottom
+                        horizontalCenter: parent.horizontalCenter
+                    }
+                    width: Math.min(contentWidth, parent.width)
                     orientation: ListView.Horizontal
                     spacing: 12
                     boundsBehavior: Flickable.StopAtBounds
