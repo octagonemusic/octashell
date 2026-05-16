@@ -1,5 +1,5 @@
 import QtQuick
-import Qt5Compat.GraphicalEffects
+import QtQuick.Effects
 import "../../theme"
 
 Item {
@@ -10,12 +10,10 @@ Item {
     property bool isSelected: ListView.isCurrentItem
     property bool isHovered: itemMouseArea.containsMouse
 
-    // Route explicit selection context directly up to the decoupled backend engine
     function select() {
         ctrl.selectItem(modelData.raw);
     }
 
-    // Isolate removal context and pipe id calculations via control layer methods
     function remove() {
         let id = modelData.raw.split('\t')[0];
         ctrl.removeItem(modelData.raw, id);
@@ -55,9 +53,18 @@ Item {
             color: Theme.primary
         }
 
+        Rectangle {
+            id: imgMask
+            width: imgPreview.width
+            height: imgPreview.height
+            radius: 8
+            visible: false
+            layer.enabled: true
+        }
+
         Image {
             id: imgPreview
-            visible: modelData.imagePath !== ""
+            visible: false
             source: modelData.imagePath !== "" ? "file://" + modelData.imagePath : ""
             anchors.left: parent.left
             anchors.right: deleteSeparator.left
@@ -70,15 +77,14 @@ Item {
             fillMode: Image.PreserveAspectFit
             horizontalAlignment: Image.AlignLeft
             asynchronous: true
+        }
 
-            layer.enabled: true
-            layer.effect: OpacityMask {
-                maskSource: Rectangle {
-                    width: imgPreview.width
-                    height: imgPreview.height
-                    radius: 8
-                }
-            }
+        MultiEffect {
+            anchors.fill: imgPreview
+            visible: modelData.imagePath !== ""
+            source: imgPreview
+            maskEnabled: true
+            maskSource: imgMask
         }
 
         Text {

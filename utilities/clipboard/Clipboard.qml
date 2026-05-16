@@ -3,7 +3,7 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import QtQuick
 import QtQuick.Controls
-import Qt5Compat.GraphicalEffects
+import QtQuick.Effects
 import "../../theme"
 
 PanelWindow {
@@ -60,13 +60,30 @@ PanelWindow {
         anchors.fill: parent
         anchors.margins: 30
 
-        DropShadow {
+        Rectangle {
+            id: shadowCaster
             anchors.fill: mainUi
-            source: mainUi
-            radius: 24
-            samples: 32
-            color: "#80000000"
-            verticalOffset: 8
+            radius: 28
+            color: "black"
+            visible: false
+        }
+
+        MultiEffect {
+            anchors.fill: shadowCaster
+            source: shadowCaster
+            shadowEnabled: true
+            shadowBlur: 1.0
+            shadowColor: "#60000000"
+            shadowVerticalOffset: 12
+        }
+
+        Rectangle {
+            id: mainUiMask
+            anchors.fill: mainUi
+            radius: 28
+            color: "black"
+            visible: false
+            layer.enabled: true
         }
 
         Rectangle {
@@ -74,10 +91,13 @@ PanelWindow {
             anchors.fill: parent
             color: Theme.surface_container
             radius: 28
-            border.width: 1
-            border.color: Theme.outline_variant
-            clip: true
             focus: true
+
+            layer.enabled: true
+            layer.effect: MultiEffect {
+                maskEnabled: true
+                maskSource: mainUiMask
+            }
 
             Keys.onPressed: event => {
                 if (event.key === Qt.Key_Escape || event.key === Qt.Key_H) {
@@ -189,8 +209,8 @@ PanelWindow {
                         id: searchBg
                         color: searchField.activeFocus ? Theme.surface_container_highest : Theme.surface_container_high
                         radius: 28
-                        border.width: searchField.activeFocus ? 2 : 0
-                        border.color: Theme.outline_variant
+                        border.width: searchField.activeFocus ? 2 : 1
+                        border.color: searchField.activeFocus ? Theme.primary : Theme.outline_variant
                         Behavior on color {
                             ColorAnimation {
                                 duration: 200
@@ -238,40 +258,40 @@ PanelWindow {
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
                 anchors.right: parent.right
-                layer.enabled: true
-                layer.effect: OpacityMask {
-                    maskSource: LinearGradient {
-                        width: listContainer.width
-                        height: listContainer.height
-                        gradient: Gradient {
-                            GradientStop {
-                                position: 0.0
-                                color: "black"
-                            }
-                            GradientStop {
-                                position: 0.85
-                                color: "black"
-                            }
-                            GradientStop {
-                                position: 1.0
-                                color: "transparent"
-                            }
-                        }
-                    }
-                }
+
+                clip: true
 
                 ListView {
                     id: listView
                     anchors.fill: parent
                     topMargin: 12
-                    bottomMargin: 24
+                    bottomMargin: 48
                     model: ctrl.filteredItems
                     spacing: 8
-                    clip: false
                     highlightMoveDuration: 80
                     highlightFollowsCurrentItem: true
 
                     delegate: ClipboardDelegate {}
+                }
+
+                // Fade Gradient
+                Rectangle {
+                    anchors {
+                        bottom: parent.bottom
+                        left: parent.left
+                        right: parent.right
+                    }
+                    height: 48
+                    gradient: Gradient {
+                        GradientStop {
+                            position: 0.0
+                            color: "transparent"
+                        }
+                        GradientStop {
+                            position: 1.0
+                            color: Theme.surface_container
+                        }
+                    }
                 }
             }
 
@@ -286,6 +306,17 @@ PanelWindow {
                     pixelSize: 18
                 }
             }
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            color: "transparent"
+            radius: 28
+            border {
+                width: 1
+                color: Theme.outline_variant
+            }
+            z: 99
         }
     }
 }
