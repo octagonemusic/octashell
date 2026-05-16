@@ -3,6 +3,7 @@ import QtQuick
 import "bar"
 import "notifications"
 import "utilities/clipboard"
+import "utilities/emoji"
 import qs.services
 
 /** Main shell entry point; manages surface orchestration. */
@@ -38,5 +39,10 @@ ShellRoot {
     // Clipboard
     Clipboard {
         id: clipboardWindow
+    }
+
+    // Emoji Picker
+    EmojiPicker {
+        id: emojiPickerWindow
     }
 }
