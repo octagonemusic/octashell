@@ -10,16 +10,15 @@ Item {
     property bool isSelected: ListView.isCurrentItem
     property bool isHovered: itemMouseArea.containsMouse
 
+    // Route explicit selection context directly up to the decoupled backend engine
     function select() {
-        copyToClipboard.selectedItem = modelData.raw;
-        copyToClipboard.running = true;
+        ctrl.selectItem(modelData.raw);
     }
 
+    // Isolate removal context and pipe id calculations via control layer methods
     function remove() {
         let id = modelData.raw.split('\t')[0];
-        deleteEntry.targetRaw = modelData.raw;
-        deleteEntry.targetId = id;
-        deleteEntry.running = true;
+        ctrl.removeItem(modelData.raw, id);
     }
 
     Rectangle {
