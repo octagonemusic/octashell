@@ -32,10 +32,12 @@ PanelWindow {
                 ctrl.triggerRefresh();
                 searchField.text = "";
                 ctrl.searchText = "";
+                ctrl.currentTab = 0; // Reset to All Clips on open
                 clipboardWindow.visible = true;
                 focusGrab.active = true;
                 mainUi.forceActiveFocus();
                 listView.currentIndex = 0;
+                listView.savedIndex = 0;
             }
         }
 
@@ -106,6 +108,10 @@ PanelWindow {
                     if (listView.currentItem) {
                         listView.currentItem.remove();
                     }
+                } else if (event.key === Qt.Key_P) {
+                    if (listView.currentItem) {
+                        listView.currentItem.togglePinState();
+                    }
                 } else if (event.key === Qt.Key_Down || event.key === Qt.Key_J) {
                     listView.incrementCurrentIndex();
                 } else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) {
@@ -115,6 +121,10 @@ PanelWindow {
                         listView.currentItem.select();
                 } else if (event.key === Qt.Key_Slash) {
                     searchField.forceActiveFocus();
+                    event.accepted = true;
+                } else if (event.key === Qt.Key_Tab) {
+                    listView.savedIndex = 0; // Reset index when switching tabs
+                    ctrl.currentTab = ctrl.currentTab === 0 ? 1 : 0;
                     event.accepted = true;
                 }
                 event.accepted = true;
@@ -175,7 +185,10 @@ PanelWindow {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: ctrl.clearAllHistory()
+                        onClicked: {
+                            listView.savedIndex = 0; // Reset index to top on massive clear
+                            ctrl.clearUnpinnedHistory();
+                        }
                     }
                 }
             }
@@ -230,7 +243,10 @@ PanelWindow {
                         }
                     }
 
-                    onTextChanged: ctrl.searchText = text
+                    onTextChanged: {
+                        listView.savedIndex = 0; // Reset index when searching
+                        ctrl.searchText = text;
+                    }
 
                     Keys.onPressed: event => {
                         if (event.key === Qt.Key_Down) {
@@ -251,10 +267,81 @@ PanelWindow {
                 }
             }
 
+            // Tab Controls
+            Item {
+                id: tabArea
+                width: parent.width
+                height: 50
+                anchors.top: searchArea.bottom
+
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 12
+
+                    Rectangle {
+                        width: 130
+                        height: 38
+                        radius: 19
+                        color: ctrl.currentTab === 0 ? Theme.primary : "transparent"
+                        border.width: ctrl.currentTab === 0 ? 0 : 1
+                        border.color: Theme.outline_variant
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "All Clips"
+                            color: ctrl.currentTab === 0 ? Theme.on_primary : Theme.on_surface_variant
+                            font {
+                                family: "Google Sans Medium"
+                                pixelSize: 15
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                listView.savedIndex = 0;
+                                ctrl.currentTab = 0;
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        width: 130
+                        height: 38
+                        radius: 19
+                        color: ctrl.currentTab === 1 ? Theme.primary : "transparent"
+                        border.width: ctrl.currentTab === 1 ? 0 : 1
+                        border.color: Theme.outline_variant
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "Pinned"
+                            color: ctrl.currentTab === 1 ? Theme.on_primary : Theme.on_surface_variant
+                            font {
+                                family: "Google Sans Medium"
+                                pixelSize: 15
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                listView.savedIndex = 0;
+                                ctrl.currentTab = 1;
+                            }
+                        }
+                    }
+                }
+            }
+
             // List Render Area Layout Container
             Item {
                 id: listContainer
-                anchors.top: searchArea.bottom
+                anchors.top: tabArea.bottom
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
                 anchors.right: parent.right
@@ -264,14 +351,26 @@ PanelWindow {
                 ListView {
                     id: listView
                     anchors.fill: parent
-                    topMargin: 12
+                    topMargin: 8
                     bottomMargin: 48
                     model: ctrl.filteredItems
                     spacing: 8
                     highlightMoveDuration: 80
                     highlightFollowsCurrentItem: true
-
                     delegate: ClipboardDelegate {}
+
+                    // Keep track of selection position
+                    property int savedIndex: 0
+
+                    Connections {
+                        target: ctrl
+                        function onFilteredItemsChanged() {
+                            // Seamlessly re-apply index when array refreshes (clamps to bounds)
+                            if (listView.count > 0) {
+                                listView.currentIndex = Math.max(0, Math.min(listView.savedIndex, listView.count - 1));
+                            }
+                        }
+                    }
                 }
 
                 // Fade Gradient
@@ -298,7 +397,7 @@ PanelWindow {
             Text {
                 id: emptyMessage
                 anchors.centerIn: listContainer
-                text: ctrl.allItems.length === 0 ? "Clipboard is empty :(" : "No results found :/"
+                text: ctrl.currentTab === 1 ? "No pinned clips yet, start pinning already!" : (ctrl.allItems.length === 0 ? "Clipboard is empty :(" : "No results found :/")
                 visible: ctrl.filteredItems.length === 0
                 color: Theme.on_surface_variant
                 font {

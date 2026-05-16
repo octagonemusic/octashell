@@ -15,8 +15,14 @@ Item {
     }
 
     function remove() {
+        delegateRoot.ListView.view.savedIndex = index; // Save current spot
         let id = modelData.raw.split('\t')[0];
         ctrl.removeItem(modelData.raw, id);
+    }
+
+    function togglePinState() {
+        delegateRoot.ListView.view.savedIndex = index; // Save current spot
+        ctrl.togglePin(modelData.raw);
     }
 
     Rectangle {
@@ -67,7 +73,7 @@ Item {
             visible: false
             source: modelData.imagePath !== "" ? "file://" + modelData.imagePath : ""
             anchors.left: parent.left
-            anchors.right: deleteSeparator.left
+            anchors.right: pinIconBtn.left
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             anchors.leftMargin: 24
@@ -90,7 +96,7 @@ Item {
         Text {
             visible: modelData.imagePath === ""
             anchors.left: parent.left
-            anchors.right: deleteSeparator.left
+            anchors.right: pinIconBtn.left
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             anchors.leftMargin: 24
@@ -107,11 +113,52 @@ Item {
         }
 
         Rectangle {
+            id: pinIconBtn
+            z: 1
+            width: 44
+            height: 44
+            radius: 22
+            anchors.right: deleteSeparator.left
+            anchors.rightMargin: 4
+            anchors.verticalCenter: parent.verticalCenter
+
+            color: modelData.isPinned ? Theme.primary : (pinMouseArea.containsMouse ? Theme.surface_container_highest : "transparent")
+
+            scale: pinMouseArea.pressed ? 0.85 : (pinMouseArea.containsMouse ? 1.1 : 1.0)
+            Behavior on scale {
+                NumberAnimation {
+                    duration: 150
+                    easing.type: Easing.OutBack
+                }
+            }
+
+            Text {
+                anchors.centerIn: parent
+                text: "push_pin"
+                font.family: "Material Symbols Rounded"
+                font.pixelSize: 22
+                color: modelData.isPinned ? Theme.on_primary : (pinMouseArea.containsMouse ? Theme.on_surface : Theme.on_surface_variant)
+            }
+
+            MouseArea {
+                id: pinMouseArea
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                preventStealing: true
+                onClicked: mouse => {
+                    mouse.accepted = true;
+                    delegateRoot.togglePinState();
+                }
+            }
+        }
+
+        Rectangle {
             id: deleteSeparator
             width: 1
             height: 40
             anchors.right: deleteIconBtn.left
-            anchors.rightMargin: 12
+            anchors.rightMargin: 4
             anchors.verticalCenter: parent.verticalCenter
             color: delegateRoot.isSelected ? Theme.on_secondary_container : Theme.outline_variant
             opacity: delegateRoot.isSelected ? 0.5 : 0.3
