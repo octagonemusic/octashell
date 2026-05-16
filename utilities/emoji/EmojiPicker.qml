@@ -6,46 +6,41 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Effects
 import "../../theme"
+import "EmojiLogic.js" as Logic
 
 PanelWindow {
     id: emojiWindow
 
+    // Configuration
     property string emojiListPath: "~/.cache/quickshell/emojis.json"
     property string recentsCachePath: "~/.local/state/quickshell/recent_emojis.json"
 
+    // Geometry
     implicitWidth: 550
     implicitHeight: 640
     color: "transparent"
     visible: false
 
+    // Window Management
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "emoji_overlay"
     exclusiveZone: -1
+    anchors.bottom: true
+    margins.bottom: 150
 
-    anchors {
-        bottom: true
-    }
-
-    margins {
-        bottom: 150
-    }
-
+    // Data State
     property var allItems: []
     property var filteredItems: []
     property var recentItems: []
-    property string currentEmojiName: gridView.currentItem ? gridView.currentItem.emojiName : ""
-
     property string selectionBuffer: ""
 
+    // UI State
     property var categories: ["Recents", "All"]
     property string currentCategory: "Recents"
-
     property bool isSearchingState: false
+    property string currentEmojiName: gridView.currentItem ? gridView.currentItem.emojiName : ""
 
-    onCurrentCategoryChanged: {
-        isSearchingState = true;
-        searchDeferTimer.restart();
-    }
+    onCurrentCategoryChanged: triggerSearch()
 
     HyprlandFocusGrab {
         id: focusGrab
@@ -53,33 +48,33 @@ PanelWindow {
         onCleared: closeMenu()
     }
 
-    function getEditDistance(a, b) {
-        let aLen = a.length;
-        let bLen = b.length;
-        if (a === b)
-            return 0;
-        if (aLen === 0)
-            return bLen;
-        if (bLen === 0)
-            return aLen;
+    Timer {
+        id: searchDeferTimer
+        interval: 75
+        repeat: false
+        onTriggered: performSearch()
+    }
 
-        let v0 = new Array(bLen + 1);
-        let v1 = new Array(bLen + 1);
+    // Core Methods
+    function triggerSearch() {
+        emojiWindow.isSearchingState = true;
+        searchDeferTimer.restart();
+    }
 
-        for (let i = 0; i <= bLen; i++)
-            v0[i] = i;
+    function performSearch() {
+        let queryStr = searchField.text.trim();
+        let isSearching = queryStr !== "";
+        let baseItems = (isSearching || emojiWindow.currentCategory === "All") ? emojiWindow.allItems : emojiWindow.recentItems;
 
-        for (let i = 0; i < aLen; i++) {
-            v1[0] = i + 1;
-            let aChar = a[i];
-            for (let j = 0; j < bLen; j++) {
-                let cost = (aChar === b[j]) ? 0 : 1;
-                v1[j + 1] = Math.min(v1[j] + 1, v0[j + 1] + 1, v0[j] + cost);
-            }
-            for (let j = 0; j <= bLen; j++)
-                v0[j] = v1[j];
+        if (!isSearching) {
+            emojiWindow.filteredItems = baseItems;
+        } else {
+            emojiWindow.filteredItems = Logic.filterEmojis(baseItems, queryStr);
         }
-        return v0[bLen];
+
+        gridView.currentIndex = 0;
+        gridView.positionViewAtBeginning();
+        emojiWindow.isSearchingState = false;
     }
 
     function saveRecentsToDisk() {
@@ -89,30 +84,25 @@ PanelWindow {
     }
 
     function processSelection(emojiChar, isShift) {
-        let itemObj = emojiWindow.allItems.find(item => item.emoji === emojiChar);
-        if (itemObj) {
-            let newRecents = emojiWindow.recentItems.filter(item => item.emoji !== emojiChar);
-            newRecents.unshift(itemObj);
+        emojiWindow.recentItems = Logic.updateRecents(emojiChar, emojiWindow.allItems, emojiWindow.recentItems);
+        saveRecentsToDisk();
 
-            if (newRecents.length > 100)
-                newRecents.pop();
-            emojiWindow.recentItems = newRecents;
-
-            saveRecentsToDisk();
-
-            if (emojiWindow.currentCategory === "Recents" && searchField.text.trim() === "") {
-                emojiWindow.filteredItems = emojiWindow.recentItems;
-            }
+        if (emojiWindow.currentCategory === "Recents" && searchField.text.trim() === "") {
+            emojiWindow.filteredItems = emojiWindow.recentItems;
         }
 
         if (isShift) {
             selectionBuffer += emojiChar;
         } else {
-            let finalSelection = selectionBuffer + emojiChar;
-            copyToClipboard.selectedEmoji = finalSelection;
+            copyToClipboard.selectedEmoji = selectionBuffer + emojiChar;
             copyToClipboard.running = true;
             selectionBuffer = "";
         }
+    }
+
+    function cycleCategory() {
+        let idx = emojiWindow.categories.indexOf(emojiWindow.currentCategory);
+        emojiWindow.currentCategory = emojiWindow.categories[(idx + 1) % emojiWindow.categories.length];
     }
 
     function closeMenu() {
@@ -121,107 +111,7 @@ PanelWindow {
         selectionBuffer = "";
     }
 
-    Timer {
-        id: searchDeferTimer
-        interval: 25
-        repeat: false
-        onTriggered: {
-            updateSearch();
-            emojiWindow.isSearchingState = false;
-        }
-    }
-
-    function updateSearch() {
-        let queryStr = searchField.text.trim();
-        let isSearching = queryStr !== "";
-        let baseItems = [];
-
-        if (isSearching) {
-            baseItems = emojiWindow.allItems;
-        } else {
-            if (emojiWindow.currentCategory === "Recents") {
-                baseItems = emojiWindow.recentItems;
-            } else if (emojiWindow.currentCategory === "All") {
-                baseItems = emojiWindow.allItems;
-            }
-        }
-
-        if (!isSearching) {
-            emojiWindow.filteredItems = baseItems;
-            gridView.currentIndex = 0;
-            gridView.positionViewAtBeginning();
-            return;
-        }
-
-        let query = queryStr.toLowerCase();
-        let queryLen = query.length;
-        let filtered = [];
-
-        for (let i = 0; i < baseItems.length; i++) {
-            let item = baseItems[i];
-            let maxScore = 0;
-            let searchStr = item.searchString;
-
-            if (item.display.toLowerCase() === query) {
-                maxScore = 110;
-            } else if (searchStr.startsWith(query)) {
-                maxScore = 95;
-            }
-
-            if (maxScore < 100) {
-                let tokens = item.tokens;
-                for (let t = 0; t < tokens.length; t++) {
-                    let token = tokens[t];
-                    if (token === query) {
-                        maxScore = Math.max(maxScore, 100);
-                        if (maxScore === 100)
-                            break;
-                    } else if (token.startsWith(query)) {
-                        maxScore = Math.max(maxScore, 90);
-                    } else if (token.includes(query)) {
-                        maxScore = Math.max(maxScore, 70);
-                    } else if (queryLen >= 3) {
-                        let allowedTypos = queryLen >= 6 ? 2 : 1;
-                        if (Math.abs(token.length - queryLen) <= allowedTypos) {
-                            let dist = getEditDistance(token, query);
-                            if (dist <= allowedTypos) {
-                                maxScore = Math.max(maxScore, 45 - (dist * 10));
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (maxScore < 50) {
-                let qIdx = 0;
-                let strIdx = 0;
-                while (qIdx < queryLen && strIdx < searchStr.length) {
-                    if (query[qIdx] === searchStr[strIdx])
-                        qIdx++;
-                    strIdx++;
-                }
-                if (qIdx === queryLen) {
-                    maxScore = Math.max(maxScore, 50);
-                }
-            }
-
-            if (maxScore > 0) {
-                item.score = maxScore;
-                filtered.push(item);
-            }
-        }
-
-        filtered.sort((a, b) => {
-            if (b.score !== a.score)
-                return b.score - a.score;
-            return a.display.length - b.display.length;
-        });
-
-        emojiWindow.filteredItems = filtered.slice(0, 150);
-        gridView.currentIndex = 0;
-        gridView.positionViewAtBeginning();
-    }
-
+    // Processes
     Process {
         id: updateEmojisProcess
         command: ["bash", Quickshell.shellPath("scripts/download_emojis.sh")]
@@ -237,39 +127,13 @@ PanelWindow {
             onStreamFinished: {
                 try {
                     let textBody = this.text.trim();
-                    if (textBody === "")
+                    if (!textBody)
                         return;
 
-                    let parsedJson = JSON.parse(textBody);
-                    let dynamicAllItems = [];
-
-                    Object.keys(parsedJson).forEach(key => {
-                        let tags = parsedJson[key] || [];
-                        let rawDesc = tags.length > 0 ? tags[0] : "emoji";
-                        let displayDesc = rawDesc.replace(/_/g, " ");
-
-                        let allWords = displayDesc.split(" ").concat(tags);
-                        let uniqueTokens = [];
-                        for (let i = 0; i < allWords.length; i++) {
-                            let w = allWords[i].toLowerCase();
-                            if (uniqueTokens.indexOf(w) === -1)
-                                uniqueTokens.push(w);
-                        }
-
-                        dynamicAllItems.push({
-                            emoji: key,
-                            display: displayDesc,
-                            category: "All",
-                            searchString: (displayDesc + " " + tags.join(" ")).toLowerCase(),
-                            tokens: uniqueTokens,
-                            score: 0
-                        });
-                    });
-
-                    emojiWindow.allItems = dynamicAllItems;
+                    emojiWindow.allItems = Logic.parseEmojiJson(textBody);
                     loadRecentsProcess.running = true;
                 } catch (e) {
-                    console.error("JSON Error parsing main list:", e);
+                    console.error("Failed to parse emoji list:", e);
                 }
             }
         }
@@ -281,25 +145,14 @@ PanelWindow {
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
-                    let textBody = this.text.trim();
-                    let savedChars = textBody ? JSON.parse(textBody) : [];
-
+                    let savedChars = JSON.parse(this.text.trim() || "[]");
                     if (Array.isArray(savedChars)) {
-                        let dynamicRecents = [];
-                        for (let i = 0; i < savedChars.length; i++) {
-                            let match = emojiWindow.allItems.find(item => item.emoji === savedChars[i]);
-                            if (match) {
-                                dynamicRecents.push(match);
-                            }
-                        }
-                        emojiWindow.recentItems = dynamicRecents;
+                        emojiWindow.recentItems = savedChars.map(char => emojiWindow.allItems.find(item => item.emoji === char)).filter(Boolean);
                     }
                 } catch (e) {
-                    console.error("JSON Error parsing persistent recents:", e);
+                    console.error("Failed to parse recents:", e);
                 }
-
-                emojiWindow.isSearchingState = true;
-                searchDeferTimer.restart();
+                triggerSearch();
             }
         }
     }
@@ -327,38 +180,34 @@ PanelWindow {
         function toggle() {
             if (emojiWindow.visible) {
                 closeMenu();
-            } else {
-                if (emojiWindow.allItems.length === 0) {
-                    if (!updateEmojisProcess.running) {
-                        fetchEmojis.running = true;
-                    }
-                } else {
-                    emojiWindow.isSearchingState = true;
-                    searchDeferTimer.restart();
-                }
-
-                searchField.text = "";
-                selectionBuffer = "";
-                emojiWindow.currentCategory = "Recents";
-
-                smoothScrollAnim.stop();
-                categoryList.contentX = 0;
-
-                emojiWindow.visible = true;
-                focusGrab.active = true;
-                mainUi.forceActiveFocus();
+                return;
             }
+
+            if (emojiWindow.allItems.length === 0 && !updateEmojisProcess.running) {
+                fetchEmojis.running = true;
+            } else {
+                triggerSearch();
+            }
+
+            searchField.text = "";
+            selectionBuffer = "";
+            emojiWindow.currentCategory = "Recents";
+            smoothScrollAnim.stop();
+            categoryList.contentX = 0;
+
+            emojiWindow.visible = true;
+            focusGrab.active = true;
+            mainUi.forceActiveFocus();
         }
     }
 
+    // UI Structure
     Item {
         id: delegateContainer
         anchors.fill: parent
         anchors.margins: 30
 
-        // 1. THE SHADOW DECOUPLER FIX
-        // We create a dummy invisible rectangle to cast the shadow
-        // so the main UI text doesn't get converted into an FBO texture!
+        // Shadow Decoupler
         Rectangle {
             id: shadowCaster
             anchors.fill: mainUi
@@ -376,7 +225,6 @@ PanelWindow {
             shadowVerticalOffset: 12
         }
 
-        // 2. The main UI now renders cleanly with native text!
         Rectangle {
             id: mainUi
             anchors.fill: parent
@@ -386,33 +234,50 @@ PanelWindow {
             focus: true
 
             Keys.onPressed: event => {
-                if (event.key === Qt.Key_Escape) {
+                switch (event.key) {
+                case Qt.Key_Escape:
                     closeMenu();
-                } else if (event.key === Qt.Key_Tab) {
-                    let idx = emojiWindow.categories.indexOf(emojiWindow.currentCategory);
-                    let nextIdx = (idx + 1) % emojiWindow.categories.length;
-                    emojiWindow.currentCategory = emojiWindow.categories[nextIdx];
                     event.accepted = true;
-                } else if (event.key === Qt.Key_Down || event.key === Qt.Key_J) {
+                    break;
+                case Qt.Key_Tab:
+                    cycleCategory();
+                    event.accepted = true;
+                    break;
+                case Qt.Key_Down:
+                case Qt.Key_J:
                     gridView.moveCurrentIndexDown();
-                } else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) {
+                    event.accepted = true;
+                    break;
+                case Qt.Key_Up:
+                case Qt.Key_K:
                     gridView.moveCurrentIndexUp();
-                } else if (event.key === Qt.Key_Left || event.key === Qt.Key_H) {
+                    event.accepted = true;
+                    break;
+                case Qt.Key_Left:
+                case Qt.Key_H:
                     gridView.moveCurrentIndexLeft();
-                } else if (event.key === Qt.Key_Right || event.key === Qt.Key_L) {
+                    event.accepted = true;
+                    break;
+                case Qt.Key_Right:
+                case Qt.Key_L:
                     gridView.moveCurrentIndexRight();
-                } else if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return) {
+                    event.accepted = true;
+                    break;
+                case Qt.Key_Enter:
+                case Qt.Key_Return:
                     if (gridView.currentItem) {
-                        let isShift = event.modifiers & Qt.ShiftModifier;
-                        emojiWindow.processSelection(gridView.currentItem.emojiChar, isShift);
+                        processSelection(gridView.currentItem.emojiChar, event.modifiers & Qt.ShiftModifier);
                     }
-                } else if (event.key === Qt.Key_Slash) {
+                    event.accepted = true;
+                    break;
+                case Qt.Key_Slash:
                     searchField.forceActiveFocus();
+                    event.accepted = true;
+                    break;
                 }
-                event.accepted = true;
             }
 
-            // --- Header ---
+            // Header
             Item {
                 id: headerArea
                 width: parent.width
@@ -438,22 +303,25 @@ PanelWindow {
 
                 Rectangle {
                     id: clearRecentsBtn
-                    anchors.right: parent.right
-                    anchors.rightMargin: 24
-                    anchors.verticalCenter: headerTitle.verticalCenter
+                    anchors {
+                        right: parent.right
+                        rightMargin: 24
+                        verticalCenter: headerTitle.verticalCenter
+                    }
                     width: 36
                     height: 36
                     radius: 18
                     color: clearMouseArea.containsMouse ? Theme.surface_container_highest : "transparent"
-
                     visible: emojiWindow.currentCategory === "Recents" && emojiWindow.recentItems.length > 0
 
                     Text {
                         anchors.centerIn: parent
                         text: "delete"
-                        font.family: "Material Symbols Rounded"
-                        font.pixelSize: 26
-                        font.bold: true
+                        font {
+                            family: "Material Symbols Rounded"
+                            pixelSize: 26
+                            bold: true
+                        }
                         color: Theme.critical
                     }
 
@@ -465,9 +333,8 @@ PanelWindow {
                         onClicked: {
                             emojiWindow.recentItems = [];
                             emojiWindow.saveRecentsToDisk();
-                            if (searchField.text.trim() === "") {
+                            if (searchField.text.trim() === "")
                                 emojiWindow.filteredItems = [];
-                            }
                         }
                     }
                     Behavior on color {
@@ -478,30 +345,31 @@ PanelWindow {
                 }
             }
 
-            // --- Search Field ---
+            // Search Box
             TextField {
                 id: searchField
-                anchors.top: headerArea.bottom
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.margins: 16
-                anchors.topMargin: 4
+                anchors {
+                    top: headerArea.bottom
+                    left: parent.left
+                    right: parent.right
+                    margins: 16
+                    topMargin: 4
+                }
                 height: 56
-
                 leftPadding: 52
-                rightPadding: searchField.text !== "" ? 48 : 16
+                rightPadding: text !== "" ? 48 : 16
 
-                font.family: "Google Sans"
-                font.pixelSize: 17
+                font {
+                    family: "Google Sans"
+                    pixelSize: 17
+                }
                 color: Theme.on_surface
                 selectionColor: Theme.primary_container
                 selectedTextColor: Theme.on_primary_container
-
                 placeholderText: "Search"
                 placeholderTextColor: Theme.on_surface_variant
 
                 background: Rectangle {
-                    id: searchBg
                     color: searchField.activeFocus ? Theme.surface_container_highest : Theme.surface_container_high
                     radius: height / 2
                     border.width: searchField.activeFocus ? 2 : 1
@@ -519,12 +387,16 @@ PanelWindow {
                     }
 
                     Text {
-                        anchors.left: parent.left
-                        anchors.leftMargin: 20
-                        anchors.verticalCenter: parent.verticalCenter
+                        anchors {
+                            left: parent.left
+                            leftMargin: 20
+                            verticalCenter: parent.verticalCenter
+                        }
                         text: "search"
-                        font.family: "Material Symbols Rounded"
-                        font.pixelSize: 24
+                        font {
+                            family: "Material Symbols Rounded"
+                            pixelSize: 24
+                        }
                         color: searchField.activeFocus ? Theme.primary : Theme.on_surface_variant
                         Behavior on color {
                             ColorAnimation {
@@ -534,63 +406,66 @@ PanelWindow {
                     }
                 }
 
-                onTextChanged: {
-                    emojiWindow.isSearchingState = true;
-                    searchDeferTimer.restart();
-                }
+                onTextChanged: triggerSearch()
 
                 Keys.onPressed: event => {
-                    if (event.key === Qt.Key_Down) {
+                    switch (event.key) {
+                    case Qt.Key_Down:
                         gridView.moveCurrentIndexDown();
                         event.accepted = true;
-                    } else if (event.key === Qt.Key_Up) {
+                        break;
+                    case Qt.Key_Up:
                         gridView.moveCurrentIndexUp();
                         event.accepted = true;
-                    } else if (event.key === Qt.Key_Left) {
+                        break;
+                    case Qt.Key_Left:
                         gridView.moveCurrentIndexLeft();
                         event.accepted = true;
-                    } else if (event.key === Qt.Key_Right) {
+                        break;
+                    case Qt.Key_Right:
                         gridView.moveCurrentIndexRight();
                         event.accepted = true;
-                    } else if (event.key === Qt.Key_Tab) {
-                        let idx = emojiWindow.categories.indexOf(emojiWindow.currentCategory);
-                        let nextIdx = (idx + 1) % emojiWindow.categories.length;
-                        emojiWindow.currentCategory = emojiWindow.categories[nextIdx];
+                        break;
+                    case Qt.Key_Tab:
+                        cycleCategory();
                         event.accepted = true;
-                    } else if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return) {
+                        break;
+                    case Qt.Key_Enter:
+                    case Qt.Key_Return:
                         if (gridView.currentItem) {
-                            let isShift = event.modifiers & Qt.ShiftModifier;
-                            emojiWindow.processSelection(gridView.currentItem.emojiChar, isShift);
+                            processSelection(gridView.currentItem.emojiChar, event.modifiers & Qt.ShiftModifier);
                         }
                         event.accepted = true;
-                    } else if (event.key === Qt.Key_Escape) {
+                        break;
+                    case Qt.Key_Escape:
                         mainUi.forceActiveFocus();
                         event.accepted = true;
+                        break;
                     }
                 }
             }
 
-            // --- Category Tabs ---
+            // Categories
             Item {
                 id: categoryTabsContainer
-                anchors.top: searchField.bottom
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.leftMargin: 16
-                anchors.rightMargin: 16
+                anchors {
+                    top: searchField.bottom
+                    left: parent.left
+                    right: parent.right
+                    leftMargin: 16
+                    rightMargin: 16
+                    topMargin: 8
+                }
                 height: 48
-                anchors.topMargin: 8
 
                 MouseArea {
                     anchors.fill: parent
                     acceptedButtons: Qt.NoButton
                     onWheel: wheel => {
                         let delta = wheel.angleDelta.x !== 0 ? wheel.angleDelta.x : wheel.angleDelta.y;
-                        let currentTarget = smoothScrollAnim.running ? smoothScrollAnim.to : categoryList.contentX;
-                        let maxScroll = Math.max(0, categoryList.contentWidth - categoryList.width);
-                        let newX = Math.max(0, Math.min(currentTarget - delta, maxScroll));
-
-                        smoothScrollAnim.to = newX;
+                        let target = smoothScrollAnim.running ? smoothScrollAnim.to : categoryList.contentX;
+                        let max = Math.max(0, categoryList.contentWidth - categoryList.width);
+                        smoothScrollAnim.to = Math.max(0, Math.min(target - delta, max));
                         smoothScrollAnim.start();
                     }
                 }
@@ -602,11 +477,7 @@ PanelWindow {
                     spacing: 8
                     clip: true
                     boundsBehavior: Flickable.StopAtBounds
-
                     model: emojiWindow.categories
-
-                    // We removed the FBO mask here to preserve text rendering!
-
                     onMovementStarted: smoothScrollAnim.stop()
 
                     NumberAnimation {
@@ -618,25 +489,27 @@ PanelWindow {
                     }
 
                     delegate: Rectangle {
+                        property bool isSelected: modelData === emojiWindow.currentCategory
                         height: 36
                         width: tabText.width + 32
                         anchors.verticalCenter: parent.verticalCenter
                         radius: 18
-
-                        property bool isSelected: modelData === emojiWindow.currentCategory
-
                         color: isSelected ? Theme.primary : Theme.surface_container_high
-                        border.width: isSelected ? 0 : 1
-                        border.color: Theme.outline_variant
+                        border {
+                            width: isSelected ? 0 : 1
+                            color: Theme.outline_variant
+                        }
 
                         Text {
                             id: tabText
                             anchors.centerIn: parent
                             text: modelData
                             color: isSelected ? Theme.on_primary : Theme.on_surface_variant
-                            font.family: "Google Sans"
-                            font.pixelSize: 14
-                            font.weight: isSelected ? Font.DemiBold : Font.Medium
+                            font {
+                                family: "Google Sans"
+                                pixelSize: 14
+                                weight: isSelected ? Font.DemiBold : Font.Medium
+                            }
                         }
 
                         MouseArea {
@@ -644,13 +517,11 @@ PanelWindow {
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                if (searchField.text !== "") {
+                                if (searchField.text !== "")
                                     searchField.text = "";
-                                }
                                 emojiWindow.currentCategory = modelData;
                             }
                         }
-
                         Behavior on color {
                             ColorAnimation {
                                 duration: 150
@@ -659,12 +530,13 @@ PanelWindow {
                     }
                 }
 
-                // 3. THE SCROLL-FADE FIX
-                // A hardware-free overlay gradient that simulates a mask!
+                // Mask Simulation
                 Rectangle {
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
+                    anchors {
+                        right: parent.right
+                        top: parent.top
+                        bottom: parent.bottom
+                    }
                     width: 32
                     gradient: Gradient {
                         orientation: Gradient.Horizontal
@@ -680,51 +552,51 @@ PanelWindow {
                 }
             }
 
-            // --- Grid Container ---
+            // Grid Container
             Item {
                 id: listContainer
-                anchors.top: categoryTabsContainer.bottom
-                anchors.bottom: footer.top
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.topMargin: 8
+                anchors {
+                    top: categoryTabsContainer.bottom
+                    bottom: footer.top
+                    left: parent.left
+                    right: parent.right
+                    topMargin: 8
+                }
 
                 GridView {
                     id: gridView
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    anchors.horizontalCenter: parent.horizontalCenter
-
+                    anchors {
+                        top: parent.top
+                        bottom: parent.bottom
+                        horizontalCenter: parent.horizontalCenter
+                    }
                     width: Math.floor((parent.width - 44) / cellWidth) * cellWidth
                     topMargin: 12
                     bottomMargin: 24
-
                     cellWidth: 60
                     cellHeight: 60
-
                     model: emojiWindow.filteredItems
-                    clip: true // Changed from false to true since we removed the mask
+                    clip: true
                     highlightMoveDuration: 120
                     highlightFollowsCurrentItem: true
-
-                    // We removed the FBO mask here to preserve text rendering!
-
                     opacity: emojiWindow.isSearchingState ? 0.4 : 1.0
+
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 120
                             easing.type: Easing.OutQuad
                         }
                     }
-
                     delegate: EmojiDelegate {}
                 }
 
-                // 3. THE SCROLL-FADE FIX (Grid version)
+                // Mask Simulation
                 Rectangle {
-                    anchors.bottom: parent.bottom
-                    anchors.left: parent.left
-                    anchors.right: parent.right
+                    anchors {
+                        bottom: parent.bottom
+                        left: parent.left
+                        right: parent.right
+                    }
                     height: 48
                     gradient: Gradient {
                         GradientStop {
@@ -739,12 +611,14 @@ PanelWindow {
                 }
             }
 
-            // --- Footer ---
+            // Footer
             Item {
                 id: footer
-                anchors.bottom: parent.bottom
-                anchors.left: parent.left
-                anchors.right: parent.right
+                anchors {
+                    bottom: parent.bottom
+                    left: parent.left
+                    right: parent.right
+                }
                 height: 64
 
                 Rectangle {
@@ -753,18 +627,22 @@ PanelWindow {
                     radius: 28
 
                     Rectangle {
-                        anchors.top: parent.top
-                        anchors.left: parent.left
-                        anchors.right: parent.right
+                        anchors {
+                            top: parent.top
+                            left: parent.left
+                            right: parent.right
+                        }
                         height: 25
                         color: Theme.surface_container_low
                     }
                 }
 
                 Rectangle {
-                    anchors.top: parent.top
-                    anchors.left: parent.left
-                    anchors.right: parent.right
+                    anchors {
+                        top: parent.top
+                        left: parent.left
+                        right: parent.right
+                    }
                     height: 1
                     color: Theme.outline_variant
                     opacity: 0.5
@@ -781,18 +659,22 @@ PanelWindow {
                         Text {
                             text: emojiWindow.selectionBuffer
                             visible: emojiWindow.selectionBuffer !== ""
-                            font.family: "Noto Color Emoji"
-                            font.pixelSize: 18
                             anchors.verticalCenter: parent.verticalCenter
+                            font {
+                                family: "Noto Color Emoji"
+                                pixelSize: 18
+                            }
                             antialiasing: true
                         }
 
                         Text {
                             text: emojiWindow.selectionBuffer !== "" ? ("+ " + (emojiWindow.currentEmojiName || "")) : (emojiWindow.currentEmojiName || "Select an emoji")
                             color: Theme.on_surface_variant
-                            font.family: "Google Sans Medium"
-                            font.pixelSize: 15
                             anchors.verticalCenter: parent.verticalCenter
+                            font {
+                                family: "Google Sans Medium"
+                                pixelSize: 15
+                            }
                         }
                     }
 
@@ -801,9 +683,11 @@ PanelWindow {
                         text: "[Tab] Switch • [Enter] Select • [Shift] Multi • [Esc] Close"
                         color: Theme.on_surface_variant
                         opacity: 0.6
-                        font.family: "Google Sans"
-                        font.pixelSize: 11
-                        font.weight: Font.Medium
+                        font {
+                            family: "Google Sans"
+                            pixelSize: 11
+                            weight: Font.Medium
+                        }
                     }
                 }
             }
@@ -814,16 +698,21 @@ PanelWindow {
                 text: emojiWindow.currentCategory === "Recents" && emojiWindow.recentItems.length === 0 ? "No recent emojis" : "No emojis found 🥲"
                 visible: emojiWindow.filteredItems.length === 0 && !emojiWindow.isSearchingState
                 color: Theme.on_surface_variant
-                font.family: "Google Sans Medium"
-                font.pixelSize: 18
+                font {
+                    family: "Google Sans Medium"
+                    pixelSize: 18
+                }
             }
 
+            // Outline
             Rectangle {
                 anchors.fill: parent
                 color: "transparent"
                 radius: 28
-                border.width: 1
-                border.color: Theme.outline_variant
+                border {
+                    width: 1
+                    color: Theme.outline_variant
+                }
                 z: 99
             }
         }
