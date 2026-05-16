@@ -35,7 +35,7 @@ PanelWindow {
     property string selectionBuffer: ""
 
     // UI State
-    property var categories: ["Recents", "All"]
+    property var categories: ["All", "Recents"]
     property string currentCategory: "Recents"
     property bool isSearchingState: false
     property string currentEmojiName: gridView.currentItem ? gridView.currentItem.emojiName : ""
@@ -50,7 +50,7 @@ PanelWindow {
 
     Timer {
         id: searchDeferTimer
-        interval: 200
+        interval: 180
         repeat: false
         onTriggered: performSearch()
     }
@@ -474,8 +474,7 @@ PanelWindow {
                     id: categoryList
                     anchors.fill: parent
                     orientation: ListView.Horizontal
-                    spacing: 8
-                    clip: true
+                    spacing: 12
                     boundsBehavior: Flickable.StopAtBounds
                     model: emojiWindow.categories
                     onMovementStarted: smoothScrollAnim.stop()
@@ -526,27 +525,6 @@ PanelWindow {
                             ColorAnimation {
                                 duration: 150
                             }
-                        }
-                    }
-                }
-
-                // Mask Simulation
-                Rectangle {
-                    anchors {
-                        right: parent.right
-                        top: parent.top
-                        bottom: parent.bottom
-                    }
-                    width: 32
-                    gradient: Gradient {
-                        orientation: Gradient.Horizontal
-                        GradientStop {
-                            position: 0.0
-                            color: "transparent"
-                        }
-                        GradientStop {
-                            position: 1.0
-                            color: Theme.surface_container
                         }
                     }
                 }
