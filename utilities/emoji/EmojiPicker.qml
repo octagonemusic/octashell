@@ -1,19 +1,13 @@
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
-import Quickshell.Io
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Effects
 import "../../theme"
-import "EmojiLogic.js" as Logic
 
 PanelWindow {
     id: emojiWindow
-
-    // Configuration
-    property string emojiListPath: "~/.cache/quickshell/emojis.json"
-    property string recentsCachePath: "~/.local/state/quickshell/recent_emojis.json"
 
     // Geometry
     implicitWidth: 550
@@ -21,177 +15,32 @@ PanelWindow {
     color: "transparent"
     visible: false
 
-    // Window Management
+    // Window Management Layout
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "emoji_overlay"
     exclusiveZone: -1
     anchors.bottom: true
     margins.bottom: 150
 
-    // Data State
-    property var allItems: []
-    property var filteredItems: []
-    property var recentItems: []
-    property string selectionBuffer: ""
+    // Instantiate the Separated Backend Controller
+    EmojiBackend {
+        id: ctrl
 
-    // UI State
-    property var categories: ["All", "Recents"]
-    property string currentCategory: "Recents"
-    property bool isSearchingState: false
-    property string currentEmojiName: gridView.currentItem ? gridView.currentItem.emojiName : ""
-
-    onCurrentCategoryChanged: triggerSearch()
-
-    HyprlandFocusGrab {
-        id: focusGrab
-        windows: [emojiWindow]
-        onCleared: closeMenu()
-    }
-
-    Timer {
-        id: searchDeferTimer
-        interval: 180
-        repeat: false
-        onTriggered: performSearch()
-    }
-
-    // Core Methods
-    function triggerSearch() {
-        emojiWindow.isSearchingState = true;
-        searchDeferTimer.restart();
-    }
-
-    function performSearch() {
-        let queryStr = searchField.text.trim();
-        let isSearching = queryStr !== "";
-        let baseItems = (isSearching || emojiWindow.currentCategory === "All") ? emojiWindow.allItems : emojiWindow.recentItems;
-
-        if (!isSearching) {
-            emojiWindow.filteredItems = baseItems;
-        } else {
-            emojiWindow.filteredItems = Logic.filterEmojis(baseItems, queryStr);
-        }
-
-        gridView.currentIndex = 0;
-        gridView.positionViewAtBeginning();
-        emojiWindow.isSearchingState = false;
-    }
-
-    function saveRecentsToDisk() {
-        let rawChars = emojiWindow.recentItems.map(item => item.emoji);
-        saveRecentsProcess.jsonString = JSON.stringify(rawChars);
-        saveRecentsProcess.running = true;
-    }
-
-    function processSelection(emojiChar, isShift) {
-        emojiWindow.recentItems = Logic.updateRecents(emojiChar, emojiWindow.allItems, emojiWindow.recentItems);
-        saveRecentsToDisk();
-
-        if (emojiWindow.currentCategory === "Recents" && searchField.text.trim() === "") {
-            emojiWindow.filteredItems = emojiWindow.recentItems;
-        }
-
-        if (isShift) {
-            selectionBuffer += emojiChar;
-        } else {
-            copyToClipboard.selectedEmoji = selectionBuffer + emojiChar;
-            copyToClipboard.running = true;
-            selectionBuffer = "";
-        }
-    }
-
-    function cycleCategory() {
-        let idx = emojiWindow.categories.indexOf(emojiWindow.currentCategory);
-        emojiWindow.currentCategory = emojiWindow.categories[(idx + 1) % emojiWindow.categories.length];
-    }
-
-    function closeMenu() {
-        emojiWindow.visible = false;
-        focusGrab.active = false;
-        selectionBuffer = "";
-    }
-
-    // Processes
-    Process {
-        id: updateEmojisProcess
-        command: ["bash", Quickshell.shellPath("scripts/download_emojis.sh")]
-        Component.onCompleted: running = true
-        onRunningChanged: if (!running)
-            fetchEmojis.running = true
-    }
-
-    Process {
-        id: fetchEmojis
-        command: ["bash", "-c", "cat " + emojiWindow.emojiListPath + " 2>/dev/null"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    let textBody = this.text.trim();
-                    if (!textBody)
-                        return;
-
-                    emojiWindow.allItems = Logic.parseEmojiJson(textBody);
-                    loadRecentsProcess.running = true;
-                } catch (e) {
-                    console.error("Failed to parse emoji list:", e);
-                }
-            }
-        }
-    }
-
-    Process {
-        id: loadRecentsProcess
-        command: ["bash", "-c", 'cat ' + emojiWindow.recentsCachePath + ' 2>/dev/null || echo "[]"']
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    let savedChars = JSON.parse(this.text.trim() || "[]");
-                    if (Array.isArray(savedChars)) {
-                        emojiWindow.recentItems = savedChars.map(char => emojiWindow.allItems.find(item => item.emoji === char)).filter(Boolean);
-                    }
-                } catch (e) {
-                    console.error("Failed to parse recents:", e);
-                }
-                triggerSearch();
-            }
-        }
-    }
-
-    Process {
-        id: saveRecentsProcess
-        property string jsonString: "[]"
-        command: ["bash", "-c", 'mkdir -p "$(dirname ' + emojiWindow.recentsCachePath + ')" && printf "%s" "$1" > ' + emojiWindow.recentsCachePath, "_", jsonString]
-    }
-
-    Process {
-        id: copyToClipboard
-        property string selectedEmoji: ""
-        command: ["bash", "-c", 'printf "%s" "$1" | wl-copy', "_", selectedEmoji]
-        onRunningChanged: {
-            if (!running && selectedEmoji !== "") {
-                closeMenu();
-                selectedEmoji = "";
-            }
-        }
-    }
-
-    IpcHandler {
-        target: "emojiMenu"
-        function toggle() {
+        onOpenMenuRequested: {
             if (emojiWindow.visible) {
                 closeMenu();
                 return;
             }
-
-            if (emojiWindow.allItems.length === 0 && !updateEmojisProcess.running) {
-                fetchEmojis.running = true;
+            if (ctrl.allItems.length === 0) {
+                // Controller handles initialization fallback internally
+                triggerSearch();
             } else {
                 triggerSearch();
             }
-
             searchField.text = "";
-            selectionBuffer = "";
-            emojiWindow.currentCategory = "Recents";
+            ctrl.searchText = "";
+            ctrl.selectionBuffer = "";
+            ctrl.currentCategory = "Recents";
             smoothScrollAnim.stop();
             categoryList.contentX = 0;
 
@@ -199,15 +48,40 @@ PanelWindow {
             focusGrab.active = true;
             mainUi.forceActiveFocus();
         }
+
+        onCloseMenuRequested: {
+            closeMenu();
+        }
     }
 
-    // UI Structure
+    // Dynamic Tracking for Header/Footer Text
+    onVisibleChanged: {
+        if (visible)
+            updateEmojiLabel();
+    }
+
+    function updateEmojiLabel() {
+        ctrl.currentEmojiName = gridView.currentItem ? gridView.currentItem.emojiName : "";
+    }
+
+    HyprlandFocusGrab {
+        id: focusGrab
+        windows: [emojiWindow]
+        onCleared: closeMenu()
+    }
+
+    function closeMenu() {
+        emojiWindow.visible = false;
+        focusGrab.active = false;
+        ctrl.selectionBuffer = "";
+    }
+
+    // UI Layout Tree
     Item {
         id: delegateContainer
         anchors.fill: parent
         anchors.margins: 30
 
-        // Shadow Decoupler
         Rectangle {
             id: shadowCaster
             anchors.fill: mainUi
@@ -240,33 +114,37 @@ PanelWindow {
                     event.accepted = true;
                     break;
                 case Qt.Key_Tab:
-                    cycleCategory();
+                    ctrl.cycleCategory();
                     event.accepted = true;
                     break;
                 case Qt.Key_Down:
                 case Qt.Key_J:
                     gridView.moveCurrentIndexDown();
+                    updateEmojiLabel();
                     event.accepted = true;
                     break;
                 case Qt.Key_Up:
                 case Qt.Key_K:
                     gridView.moveCurrentIndexUp();
+                    updateEmojiLabel();
                     event.accepted = true;
                     break;
                 case Qt.Key_Left:
                 case Qt.Key_H:
                     gridView.moveCurrentIndexLeft();
+                    updateEmojiLabel();
                     event.accepted = true;
                     break;
                 case Qt.Key_Right:
                 case Qt.Key_L:
                     gridView.moveCurrentIndexRight();
+                    updateEmojiLabel();
                     event.accepted = true;
                     break;
                 case Qt.Key_Enter:
                 case Qt.Key_Return:
                     if (gridView.currentItem) {
-                        processSelection(gridView.currentItem.emojiChar, event.modifiers & Qt.ShiftModifier);
+                        ctrl.processSelection(gridView.currentItem.emojiChar, event.modifiers & Qt.ShiftModifier);
                     }
                     event.accepted = true;
                     break;
@@ -277,7 +155,7 @@ PanelWindow {
                 }
             }
 
-            // Header
+            // Header Area
             Item {
                 id: headerArea
                 width: parent.width
@@ -312,7 +190,7 @@ PanelWindow {
                     height: 36
                     radius: 18
                     color: clearMouseArea.containsMouse ? Theme.surface_container_highest : "transparent"
-                    visible: emojiWindow.currentCategory === "Recents" && emojiWindow.recentItems.length > 0
+                    visible: ctrl.currentCategory === "Recents" && ctrl.recentItems.length > 0
 
                     Text {
                         anchors.centerIn: parent
@@ -330,12 +208,7 @@ PanelWindow {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            emojiWindow.recentItems = [];
-                            emojiWindow.saveRecentsToDisk();
-                            if (searchField.text.trim() === "")
-                                emojiWindow.filteredItems = [];
-                        }
+                        onClicked: ctrl.clearRecents()
                     }
                     Behavior on color {
                         ColorAnimation {
@@ -358,7 +231,6 @@ PanelWindow {
                 height: 56
                 leftPadding: 52
                 rightPadding: text !== "" ? 48 : 16
-
                 font {
                     family: "Google Sans"
                     pixelSize: 17
@@ -374,7 +246,6 @@ PanelWindow {
                     radius: height / 2
                     border.width: searchField.activeFocus ? 2 : 1
                     border.color: searchField.activeFocus ? Theme.primary : Theme.outline_variant
-
                     Behavior on border.color {
                         ColorAnimation {
                             duration: 150
@@ -398,42 +269,42 @@ PanelWindow {
                             pixelSize: 24
                         }
                         color: searchField.activeFocus ? Theme.primary : Theme.on_surface_variant
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: 150
-                            }
-                        }
                     }
                 }
 
-                onTextChanged: triggerSearch()
+                // Pipe visual typing up into controller layer
+                onTextChanged: ctrl.searchText = text
 
                 Keys.onPressed: event => {
                     switch (event.key) {
                     case Qt.Key_Down:
                         gridView.moveCurrentIndexDown();
+                        updateEmojiLabel();
                         event.accepted = true;
                         break;
                     case Qt.Key_Up:
                         gridView.moveCurrentIndexUp();
+                        updateEmojiLabel();
                         event.accepted = true;
                         break;
                     case Qt.Key_Left:
                         gridView.moveCurrentIndexLeft();
+                        updateEmojiLabel();
                         event.accepted = true;
                         break;
                     case Qt.Key_Right:
                         gridView.moveCurrentIndexRight();
+                        updateEmojiLabel();
                         event.accepted = true;
                         break;
                     case Qt.Key_Tab:
-                        cycleCategory();
+                        ctrl.cycleCategory();
                         event.accepted = true;
                         break;
                     case Qt.Key_Enter:
                     case Qt.Key_Return:
                         if (gridView.currentItem) {
-                            processSelection(gridView.currentItem.emojiChar, event.modifiers & Qt.ShiftModifier);
+                            ctrl.processSelection(gridView.currentItem.emojiChar, event.modifiers & Qt.ShiftModifier);
                         }
                         event.accepted = true;
                         break;
@@ -476,7 +347,7 @@ PanelWindow {
                     orientation: ListView.Horizontal
                     spacing: 12
                     boundsBehavior: Flickable.StopAtBounds
-                    model: emojiWindow.categories
+                    model: ctrl.categories
                     onMovementStarted: smoothScrollAnim.stop()
 
                     NumberAnimation {
@@ -488,7 +359,7 @@ PanelWindow {
                     }
 
                     delegate: Rectangle {
-                        property bool isSelected: modelData === emojiWindow.currentCategory
+                        property bool isSelected: modelData === ctrl.currentCategory
                         height: 36
                         width: tabText.width + 32
                         anchors.verticalCenter: parent.verticalCenter
@@ -518,7 +389,7 @@ PanelWindow {
                             onClicked: {
                                 if (searchField.text !== "")
                                     searchField.text = "";
-                                emojiWindow.currentCategory = modelData;
+                                ctrl.currentCategory = modelData;
                             }
                         }
                         Behavior on color {
@@ -530,7 +401,7 @@ PanelWindow {
                 }
             }
 
-            // Grid Container
+            // Grid Layout View
             Item {
                 id: listContainer
                 anchors {
@@ -553,11 +424,12 @@ PanelWindow {
                     bottomMargin: 24
                     cellWidth: 60
                     cellHeight: 60
-                    model: emojiWindow.filteredItems
+                    model: ctrl.filteredItems
                     clip: true
                     highlightMoveDuration: 120
                     highlightFollowsCurrentItem: true
-                    opacity: emojiWindow.isSearchingState ? 0.4 : 1.0
+                    opacity: ctrl.isSearchingState ? 0.4 : 1.0
+                    onCurrentIndexChanged: updateEmojiLabel()
 
                     Behavior on opacity {
                         NumberAnimation {
@@ -568,7 +440,6 @@ PanelWindow {
                     delegate: EmojiDelegate {}
                 }
 
-                // Mask Simulation
                 Rectangle {
                     anchors {
                         bottom: parent.bottom
@@ -589,7 +460,7 @@ PanelWindow {
                 }
             }
 
-            // Footer
+            // Footer Toolbar Panel
             Item {
                 id: footer
                 anchors {
@@ -603,7 +474,6 @@ PanelWindow {
                     anchors.fill: parent
                     color: Theme.surface_container_low
                     radius: 28
-
                     Rectangle {
                         anchors {
                             top: parent.top
@@ -629,24 +499,20 @@ PanelWindow {
                 Column {
                     anchors.centerIn: parent
                     spacing: 4
-
                     Row {
                         anchors.horizontalCenter: parent.horizontalCenter
                         spacing: 8
-
                         Text {
-                            text: emojiWindow.selectionBuffer
-                            visible: emojiWindow.selectionBuffer !== ""
+                            text: ctrl.selectionBuffer
+                            visible: ctrl.selectionBuffer !== ""
                             anchors.verticalCenter: parent.verticalCenter
                             font {
                                 family: "Noto Color Emoji"
                                 pixelSize: 18
                             }
-                            antialiasing: true
                         }
-
                         Text {
-                            text: emojiWindow.selectionBuffer !== "" ? ("+ " + (emojiWindow.currentEmojiName || "")) : (emojiWindow.currentEmojiName || "Select an emoji")
+                            text: ctrl.selectionBuffer !== "" ? ("+ " + (ctrl.currentEmojiName || "")) : (ctrl.currentEmojiName || "Select an emoji")
                             color: Theme.on_surface_variant
                             anchors.verticalCenter: parent.verticalCenter
                             font {
@@ -673,8 +539,8 @@ PanelWindow {
             Text {
                 id: emptyMessage
                 anchors.centerIn: listContainer
-                text: emojiWindow.currentCategory === "Recents" && emojiWindow.recentItems.length === 0 ? "No recent emojis" : "No emojis found 🥲"
-                visible: emojiWindow.filteredItems.length === 0 && !emojiWindow.isSearchingState
+                text: ctrl.currentCategory === "Recents" && ctrl.recentItems.length === 0 ? "No recent emojis" : "No emojis found 🥲"
+                visible: ctrl.filteredItems.length === 0 && !ctrl.isSearchingState
                 color: Theme.on_surface_variant
                 font {
                     family: "Google Sans Medium"
@@ -682,7 +548,7 @@ PanelWindow {
                 }
             }
 
-            // Outline
+            // Outer Profile Trim
             Rectangle {
                 anchors.fill: parent
                 color: "transparent"
