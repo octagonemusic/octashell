@@ -49,6 +49,7 @@ Variants {
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "notification_overlay"
         WlrLayershell.exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
         color: "transparent"
 
