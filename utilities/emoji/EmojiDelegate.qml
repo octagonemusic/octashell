@@ -18,7 +18,7 @@ Item {
     Behavior on targetScale {
         NumberAnimation {
             duration: 180
-            easing.type: Easing.OutBack
+            easing.type: Easing.OutQuad
             easing.overshoot: 1.8
         }
     }
@@ -30,11 +30,6 @@ Item {
         width: 52
         height: 52
         radius: 16
-
-        antialiasing: true
-
-        layer.enabled: true
-        layer.smooth: true
 
         color: delegateRoot.isSelected ? Theme.primary_container : (delegateRoot.isHovered ? Theme.surface_container_highest : "transparent")
 

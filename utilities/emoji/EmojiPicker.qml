@@ -50,7 +50,7 @@ PanelWindow {
 
     Timer {
         id: searchDeferTimer
-        interval: 75
+        interval: 200
         repeat: false
         onTriggered: performSearch()
     }
