@@ -18,7 +18,7 @@ PanelWindow {
     // Window Management Layout
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "emoji_overlay"
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
     exclusiveZone: -1
     anchors.bottom: true
     margins.bottom: 150

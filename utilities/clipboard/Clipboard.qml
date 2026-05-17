@@ -16,7 +16,7 @@ PanelWindow {
 
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "clipboard_overlay"
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
     exclusiveZone: -1
 
     anchors.bottom: true
