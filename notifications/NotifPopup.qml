@@ -119,7 +119,9 @@ Variants {
                 required property var notificationEntry
 
                 readonly property string applicationName: notificationEntry.appName || "Notification"
-                readonly property string applicationIcon: notificationEntry.image || notificationEntry.appIcon
+
+                readonly property var applicationIcon: notificationEntry.image || notificationEntry.appIcon || ""
+
                 property real lifeSpanProgress: 1.0
 
                 Connections {
@@ -169,7 +171,7 @@ Variants {
                         shadowColor: "#40000000"
 
                         blurMax: 32
-                        shadowBlur: interactionArea.containsMouse ? 0.5 : 0.2 // Expressive dynamic shadow
+                        shadowBlur: interactionArea.containsMouse ? 0.5 : 0.2
                         shadowVerticalOffset: interactionArea.containsMouse ? 6 : 2
 
                         Behavior on shadowBlur {
@@ -250,9 +252,10 @@ Variants {
                                     top: parent.top
                                 }
 
+                                // Fallback icon / initial state
                                 Rectangle {
                                     anchors.fill: parent
-                                    radius: width / 2 // Perfect circle
+                                    radius: width / 2
                                     color: Theme.primary_container
                                     visible: !delegateContainer.applicationIcon
 
@@ -268,6 +271,16 @@ Variants {
                                     }
                                 }
 
+                                Rectangle {
+                                    id: circleMask
+                                    width: iconWrapper.width
+                                    height: iconWrapper.height
+                                    radius: width / 2
+                                    color: "black"   // MUST be a solid color to work as a mask
+                                    visible: false   // Hide from the visible UI layout
+                                    layer.enabled: true // CRITICAL: Forces Qt to render the hidden mask in the background
+                                }
+
                                 Image {
                                     id: iconSrc
                                     anchors.fill: parent
@@ -278,11 +291,7 @@ Variants {
                                     layer.enabled: true
                                     layer.effect: MultiEffect {
                                         maskEnabled: true
-                                        maskSource: Rectangle {
-                                            width: iconSrc.width
-                                            height: iconSrc.height
-                                            radius: width / 2
-                                        }
+                                        maskSource: circleMask
                                     }
                                 }
                             }
@@ -356,16 +365,15 @@ Variants {
                                     ShapePath {
                                         fillColor: "transparent"
                                         strokeColor: Theme.critical
-                                        strokeWidth: 3 // Thicker ring
+                                        strokeWidth: 3
                                         capStyle: ShapePath.RoundCap
 
                                         PathAngleArc {
                                             centerX: closeAction.width / 2
                                             centerY: closeAction.height / 2
-                                            // Adjusted padding to 2.5 to prevent the thicker stroke from clipping outside the bounds
                                             radiusX: (closeAction.width / 2) - 2.5
                                             radiusY: (closeAction.height / 2) - 2.5
-                                            startAngle: -90 // Centered at top apex
+                                            startAngle: -90
                                             sweepAngle: delegateContainer.lifeSpanProgress * 360
                                         }
                                     }
