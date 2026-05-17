@@ -36,13 +36,9 @@ Variants {
             }
         }
 
-        // --- Window State & Ghost Surface Logic ---
-        visible: true // Permanently mapped to prevent Wayland focus stealing
-
+        visible: true
         property bool hasNotifications: activeNotifications.count > 0
 
-        // This timer holds the Wayland surface open for 350ms after the last notification
-        // is dismissed so the bezier slide-out animation doesn't get chopped off!
         Timer {
             id: exitTimer
             interval: 350
@@ -51,14 +47,12 @@ Variants {
 
         readonly property bool surfaceMapped: hasNotifications || exitTimer.running
 
-        // We freeze the window height while the exit timer is running
         property real stableHeight: 0
         Binding on stableHeight {
             when: hasNotifications
             value: notificationStack.contentHeight + 40
         }
 
-        // Collapse the physical Wayland window to 0x0 ONLY when animations are fully complete
         implicitWidth: surfaceMapped ? 390 : 0
         implicitHeight: surfaceMapped ? stableHeight : 0
 
@@ -125,7 +119,6 @@ Variants {
             model: activeNotifications
             delegate: notificationDelegate
 
-            // 1. Entrance animation (Snappy overshoot using native OutBack)
             add: Transition {
                 ParallelAnimation {
                     NumberAnimation {
@@ -134,7 +127,7 @@ Variants {
                         to: 0
                         duration: 350
                         easing.type: Easing.OutBack
-                        easing.overshoot: 1.1 // ~10% overshoot (perfectly snappy)
+                        easing.overshoot: 1.05
                     }
                     NumberAnimation {
                         property: "opacity"
@@ -145,7 +138,6 @@ Variants {
                 }
             }
 
-            // 2. Exit Animation (Pulls left slightly for anticipation, then snaps out)
             remove: Transition {
                 ParallelAnimation {
                     NumberAnimation {
@@ -153,7 +145,7 @@ Variants {
                         to: 390
                         duration: 350
                         easing.type: Easing.InBack
-                        easing.overshoot: 1.15 // Pulls back ~15% before shooting right
+                        easing.overshoot: 1.1
                     }
                     NumberAnimation {
                         property: "opacity"
@@ -163,13 +155,12 @@ Variants {
                 }
             }
 
-            // 3. Smooth shifting (Makes other notifications slide up gracefully with a tiny bounce)
             displaced: Transition {
                 NumberAnimation {
                     properties: "y"
                     duration: 350
                     easing.type: Easing.OutBack
-                    easing.overshoot: 1.1
+                    easing.overshoot: 1.05
                 }
             }
         }
@@ -180,7 +171,7 @@ Variants {
 
             Item {
                 id: delegateContainer
-                width: 350 // Fits perfectly inside ListView
+                width: 350
                 height: notificationCard.height + 20
 
                 required property var notificationEntry
