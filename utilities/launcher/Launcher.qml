@@ -16,7 +16,7 @@ PanelWindow {
 
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "launcher_overlay"
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
     exclusiveZone: -1
 
     anchors {
@@ -25,6 +25,77 @@ PanelWindow {
 
     margins {
         bottom: 170
+    }
+
+    // Returns a score >= 0 if the name is a good match for the query, -1 if not.
+    // Only name-prefix, word-prefix, and short substring matches qualify.
+    // Initials and loose substring are intentionally excluded for stricter results.
+    function scoreMatch(name, query) {
+        var nameLower = name.toLowerCase();
+        var queryLower = query.toLowerCase();
+
+        // Exact match
+        if (nameLower === queryLower)
+            return 1000;
+
+        // Full name starts with query
+        if (nameLower.startsWith(queryLower))
+            return 800;
+
+        // Any word in the name starts with query
+        var words = nameLower.split(/[\s\-_]+/);
+        for (var i = 0; i < words.length; i++) {
+            if (words[i].startsWith(queryLower))
+                return 600;
+        }
+
+        // Substring match — only allow if query is at least 3 chars to avoid
+        // single/double letter matches polluting short queries
+        if (query.length >= 3 && nameLower.indexOf(queryLower) !== -1)
+            return 200;
+
+        return -1;
+    }
+
+    function buildFilteredList() {
+        var allApps = DesktopEntries.applications.values;
+        var query = ctrl.searchText.trim();
+
+        if (query === "") {
+            return allApps.slice().sort((a, b) => a.name.localeCompare(b.name));
+        }
+
+        var scored = [];
+        for (var i = 0; i < allApps.length; i++) {
+            var entry = allApps[i];
+
+            // Primary: score against the app name
+            var best = scoreMatch(entry.name, query);
+
+            // Secondary: genericName and comment only contribute if the name
+            // itself didn't already match, and only via the stricter tiers
+            if (best < 0) {
+                if (entry.genericName) {
+                    var gs = scoreMatch(entry.genericName, query);
+                    if (gs >= 600) // only word-prefix or better from secondary fields
+                        best = Math.max(best, gs - 100);
+                }
+            }
+
+            if (best >= 0)
+                scored.push({
+                    entry: entry,
+                    score: best
+                });
+        }
+
+        scored.sort((a, b) => {
+            if (b.score !== a.score)
+                return b.score - a.score;
+            return a.entry.name.localeCompare(b.entry.name);
+        });
+
+        return scored.map(s => s.entry);
     }
 
     LauncherBackend {
@@ -39,7 +110,6 @@ PanelWindow {
                 launcherWindow.visible = true;
                 focusGrab.active = true;
 
-                // Starts directly in Search Mode
                 searchField.forceActiveFocus();
                 listView.currentIndex = 0;
             }
@@ -103,7 +173,6 @@ PanelWindow {
                 maskSource: mainUiMask
             }
 
-            // --- NORMAL MODE LOGIC (hjkl) ---
             Keys.onPressed: event => {
                 if (searchField.activeFocus)
                     return;
@@ -127,11 +196,10 @@ PanelWindow {
                 }
             }
 
-            // --- HERO SEARCH AREA ---
             Item {
                 id: searchArea
                 width: parent.width
-                height: 84 // Perfectly balanced for the new font size
+                height: 84
                 anchors.top: parent.top
 
                 TextField {
@@ -142,15 +210,13 @@ PanelWindow {
 
                     font {
                         family: "Google Sans"
-                        pixelSize: 26 // The sweet spot: Big, but not screaming
-
+                        pixelSize: 26
                         weight: Font.Medium
                     }
                     color: Theme.on_surface
                     selectionColor: Theme.primary_container
                     selectedTextColor: Theme.on_primary_container
 
-                    // Restored your requested text
                     placeholderText: "What do you want to open?"
                     placeholderTextColor: Theme.on_surface_variant
 
@@ -178,10 +244,9 @@ PanelWindow {
                         listView.currentIndex = 0;
                     }
 
-                    // --- SEARCH MODE LOGIC ---
                     Keys.onPressed: event => {
                         if (event.key === Qt.Key_Escape) {
-                            mainUi.forceActiveFocus(); // Drop into Normal Mode
+                            mainUi.forceActiveFocus();
                             event.accepted = true;
                         } else if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return) {
                             if (listView.currentItem)
@@ -197,7 +262,6 @@ PanelWindow {
                     }
                 }
 
-                // Subtle separator line
                 Rectangle {
                     anchors.bottom: parent.bottom
                     anchors.left: parent.left
@@ -210,7 +274,6 @@ PanelWindow {
                 }
             }
 
-            // --- RICH LIST AREA ---
             Item {
                 id: listContainer
                 anchors.top: searchArea.bottom
@@ -231,23 +294,7 @@ PanelWindow {
                     delegate: LauncherDelegate {}
 
                     model: ScriptModel {
-                        values: {
-                            let allApps = DesktopEntries.applications.values;
-                            let query = ctrl.searchText.toLowerCase().trim();
-                            if (query === "")
-                                return allApps;
-
-                            return allApps.filter(entry => {
-                                let str = entry.name.toLowerCase();
-                                let i = 0, j = 0;
-                                while (i < str.length && j < query.length) {
-                                    if (str[i] === query[j])
-                                        j++;
-                                    i++;
-                                }
-                                return j === query.length;
-                            });
-                        }
+                        values: launcherWindow.buildFilteredList()
                     }
                 }
 
@@ -283,7 +330,6 @@ PanelWindow {
                 }
             }
 
-            // --- MINIMALIST FOOTER ---
             Item {
                 id: footer
                 anchors {

@@ -5,12 +5,11 @@ import "../../theme"
 Item {
     id: delegateRoot
     width: ListView.view.width
-    height: 72 // Taller to accommodate description text
+    height: 72
 
     property bool isSelected: ListView.isCurrentItem
     property bool isHovered: itemMouseArea.containsMouse
 
-    // Extract secondary text gracefully
     property string descriptionText: modelData.genericName ? modelData.genericName : (modelData.comment ? modelData.comment : "")
 
     function launch() {
@@ -81,7 +80,6 @@ Item {
                 return "image://icon/" + modelData.icon;
             }
 
-            // Fallback for missing/broken icons to prevent pink and black squares
             onStatusChanged: {
                 if (status === Image.Error) {
                     source = "image://icon/application-x-executable";
@@ -124,7 +122,7 @@ Item {
             }
         }
 
-        // "Launch" indicator that appears on the far right when selected
+        // "Launch" pill that appears on the far right when selected
         Rectangle {
             id: launchPill
             anchors.right: parent.right
@@ -139,12 +137,12 @@ Item {
 
             Behavior on opacity {
                 NumberAnimation {
-                    duration: 150
+                    duration: 100
                 }
             }
             Behavior on scale {
                 NumberAnimation {
-                    duration: 150
+                    duration: 100
                     easing.type: Easing.OutBack
                 }
             }
@@ -152,7 +150,11 @@ Item {
             Row {
                 anchors.centerIn: parent
                 spacing: 6
+
                 Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    topPadding: 2
+                    verticalAlignment: Text.AlignVCenter
                     text: "Launch"
                     color: Theme.on_primary
                     font {
@@ -160,7 +162,11 @@ Item {
                         pixelSize: 13
                     }
                 }
+
                 Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    topPadding: 2
+                    verticalAlignment: Text.AlignVCenter
                     text: "keyboard_return"
                     color: Theme.on_primary
                     font {
