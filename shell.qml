@@ -1,9 +1,12 @@
+//@ pragma IconTheme Papirus
+
 import Quickshell
 import QtQuick
 import "bar"
 import "notifications"
 import "utilities/clipboard"
 import "utilities/emoji"
+import "utilities/launcher"
 import qs.services
 
 /** Main shell entry point; manages surface orchestration. */
@@ -44,5 +47,10 @@ ShellRoot {
     // Emoji Picker
     EmojiPicker {
         id: emojiPickerWindow
+    }
+
+    // Application Launcher
+    Launcher {
+        id: launcherWindow
     }
 }
