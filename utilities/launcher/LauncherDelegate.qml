@@ -38,7 +38,6 @@ Item {
             }
         }
 
-        // M3 Accent Pill
         Rectangle {
             id: activeIndicator
             width: 4
@@ -87,7 +86,6 @@ Item {
             }
         }
 
-        // App Text Column
         Column {
             anchors.left: appIcon.right
             anchors.right: launchPill.left
@@ -122,7 +120,6 @@ Item {
             }
         }
 
-        // "Launch" pill that appears on the far right when selected
         Rectangle {
             id: launchPill
             anchors.right: parent.right

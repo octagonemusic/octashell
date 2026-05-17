@@ -27,9 +27,6 @@ PanelWindow {
         bottom: 170
     }
 
-    // Returns a score >= 0 if the name is a good match for the query, -1 if not.
-    // Only name-prefix, word-prefix, and short substring matches qualify.
-    // Initials and loose substring are intentionally excluded for stricter results.
     function scoreMatch(name, query) {
         var nameLower = name.toLowerCase();
         var queryLower = query.toLowerCase();
@@ -49,7 +46,6 @@ PanelWindow {
                 return 600;
         }
 
-        // Substring match — only allow if query is at least 3 chars to avoid
         // single/double letter matches polluting short queries
         if (query.length >= 3 && nameLower.indexOf(queryLower) !== -1)
             return 200;
@@ -69,11 +65,8 @@ PanelWindow {
         for (var i = 0; i < allApps.length; i++) {
             var entry = allApps[i];
 
-            // Primary: score against the app name
             var best = scoreMatch(entry.name, query);
 
-            // Secondary: genericName and comment only contribute if the name
-            // itself didn't already match, and only via the stricter tiers
             if (best < 0) {
                 if (entry.genericName) {
                     var gs = scoreMatch(entry.genericName, query);
