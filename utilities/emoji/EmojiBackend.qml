@@ -30,16 +30,9 @@ Item {
     onCurrentCategoryChanged: triggerSearch()
     onSearchTextChanged: triggerSearch()
 
-    Timer {
-        id: searchDeferTimer
-        interval: 180
-        repeat: false
-        onTriggered: performSearch()
-    }
-
     function triggerSearch() {
         backend.isSearchingState = true;
-        searchDeferTimer.restart();
+        performSearch();
     }
 
     function performSearch() {
