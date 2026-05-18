@@ -126,8 +126,8 @@ PanelWindow {
 
     Item {
         anchors.fill: parent
-        anchors.margins: 40
-        anchors.bottomMargin: 10
+        anchors.margins: 80
+        anchors.bottomMargin: 50
 
         Rectangle {
             id: shadowCaster
@@ -141,11 +141,10 @@ PanelWindow {
             anchors.fill: shadowCaster
             source: shadowCaster
             shadowEnabled: true
-            shadowBlur: 2.5
-            shadowColor: "#70000000"
+            shadowBlur: 1.5
+            shadowColor: "#60000000"
             shadowVerticalOffset: 16
         }
-
         Rectangle {
             id: mainUiMask
             anchors.fill: mainUi
@@ -168,7 +167,6 @@ PanelWindow {
                 maskSource: mainUiMask
             }
 
-            // --- THE M3 INTEGRATED BANNER ---
             Item {
                 id: edgeBanner
                 anchors.top: parent.top
@@ -183,15 +181,12 @@ PanelWindow {
                     asynchronous: true
                 }
 
-                // Thematic Integration: A subtle primary color wash
                 Rectangle {
                     anchors.fill: parent
                     color: Theme.primary
                     opacity: 0.15
                 }
 
-                // Bottom Scrim: A slight dark gradient just at the bottom
-                // to make the overlapping search bar pop off the surface.
                 Rectangle {
                     anchors.bottom: parent.bottom
                     anchors.left: parent.left
@@ -233,7 +228,6 @@ PanelWindow {
                 }
             }
 
-            // --- THE M3 FLOATING SEARCH PILL ---
             Rectangle {
                 id: searchArea
                 height: 64
@@ -242,13 +236,11 @@ PanelWindow {
                 anchors.leftMargin: 32
                 anchors.rightMargin: 32
 
-                // Anchors the center of the search bar to the bottom edge of the banner
                 anchors.verticalCenter: edgeBanner.bottom
 
-                radius: height / 2 // Fully rounded pill shape
+                radius: height / 2
                 color: Theme.surface_container_highest
 
-                // M3 Elevation Shadow for the floating pill
                 layer.enabled: true
                 layer.effect: MultiEffect {
                     shadowEnabled: true
@@ -318,7 +310,6 @@ PanelWindow {
                 }
             }
 
-            // --- LIST CONTAINER ---
             Item {
                 id: listContainer
                 anchors.top: searchArea.bottom
