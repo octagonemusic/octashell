@@ -9,6 +9,8 @@ FileView {
     watchChanges: true
     onFileChanged: reload()
 
+    property string wallpaper: "file://" + colors.wallpaper_path
+
     // --- ALIASES ---
     property alias primary: colors.primary
     property alias on_primary: colors.on_primary
@@ -53,6 +55,7 @@ FileView {
     JsonAdapter {
         id: colors
 
+        property string wallpaper_path: ""
         property string primary: "#6750a4"
         property string on_primary: "#ffffff"
         property string primary_container: "#eaddff"

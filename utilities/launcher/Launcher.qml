@@ -1,3 +1,5 @@
+//@ pragma IconTheme Papirus
+
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
@@ -166,6 +168,48 @@ PanelWindow {
                 maskSource: mainUiMask
             }
 
+            // --- THE M3 INTEGRATED BANNER ---
+            Item {
+                id: edgeBanner
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: 180
+
+                Image {
+                    anchors.fill: parent
+                    source: Theme.wallpaper
+                    fillMode: Image.PreserveAspectCrop
+                    asynchronous: true
+                }
+
+                // Thematic Integration: A subtle primary color wash
+                Rectangle {
+                    anchors.fill: parent
+                    color: Theme.primary
+                    opacity: 0.15
+                }
+
+                // Bottom Scrim: A slight dark gradient just at the bottom
+                // to make the overlapping search bar pop off the surface.
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: 80
+                    gradient: Gradient {
+                        GradientStop {
+                            position: 0.0
+                            color: "transparent"
+                        }
+                        GradientStop {
+                            position: 1.0
+                            color: "#40000000"
+                        }
+                    }
+                }
+            }
+
             Keys.onPressed: event => {
                 if (searchField.activeFocus)
                     return;
@@ -189,39 +233,57 @@ PanelWindow {
                 }
             }
 
-            Item {
+            // --- THE M3 FLOATING SEARCH PILL ---
+            Rectangle {
                 id: searchArea
-                width: parent.width
-                height: 84
-                anchors.top: parent.top
+                height: 64
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.leftMargin: 32
+                anchors.rightMargin: 32
+
+                // Anchors the center of the search bar to the bottom edge of the banner
+                anchors.verticalCenter: edgeBanner.bottom
+
+                radius: height / 2 // Fully rounded pill shape
+                color: Theme.surface_container_highest
+
+                // M3 Elevation Shadow for the floating pill
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowBlur: 1.0
+                    shadowColor: "#40000000"
+                    shadowVerticalOffset: 4
+                }
 
                 TextField {
                     id: searchField
                     anchors.fill: parent
-                    leftPadding: 68
-                    rightPadding: 32
+                    leftPadding: 60
+                    rightPadding: 24
 
                     font {
                         family: "Google Sans"
-                        pixelSize: 26
+                        pixelSize: 22
                         weight: Font.Medium
                     }
                     color: Theme.on_surface
                     selectionColor: Theme.primary_container
                     selectedTextColor: Theme.on_primary_container
 
-                    placeholderText: "What do you want to open?"
+                    placeholderText: "Search apps..."
                     placeholderTextColor: Theme.on_surface_variant
 
                     background: Item {
                         Text {
                             anchors.left: parent.left
-                            anchors.leftMargin: 24
+                            anchors.leftMargin: 20
                             anchors.verticalCenter: parent.verticalCenter
                             text: "search"
                             font {
                                 family: "Material Symbols Rounded"
-                                pixelSize: 32
+                                pixelSize: 28
                             }
                             color: searchField.activeFocus ? Theme.primary : Theme.on_surface_variant
                             Behavior on color {
@@ -254,22 +316,13 @@ PanelWindow {
                         }
                     }
                 }
-
-                Rectangle {
-                    anchors.bottom: parent.bottom
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.leftMargin: 24
-                    anchors.rightMargin: 24
-                    height: 1
-                    color: Theme.outline_variant
-                    opacity: 0.4
-                }
             }
 
+            // --- LIST CONTAINER ---
             Item {
                 id: listContainer
                 anchors.top: searchArea.bottom
+                anchors.topMargin: 16 // Breathing room below the floating pill
                 anchors.bottom: footer.top
                 anchors.left: parent.left
                 anchors.right: parent.right

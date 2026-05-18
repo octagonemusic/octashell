@@ -1,5 +1,3 @@
-//@ pragma IconTheme Papirus
-
 import Quickshell
 import QtQuick
 import "bar"
