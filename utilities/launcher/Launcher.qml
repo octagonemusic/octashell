@@ -1,5 +1,3 @@
-//@ pragma IconTheme Papirus
-
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
@@ -72,7 +70,7 @@ PanelWindow {
             if (best < 0) {
                 if (entry.genericName) {
                     var gs = scoreMatch(entry.genericName, query);
-                    if (gs >= 600) // only word-prefix or better from secondary fields
+                    if (gs >= 600)
                         best = Math.max(best, gs - 100);
                 }
             }
@@ -132,7 +130,8 @@ PanelWindow {
         Rectangle {
             id: shadowCaster
             anchors.fill: mainUi
-            radius: 28
+            anchors.margins: 2
+            radius: 26
             color: "black"
             visible: false
         }
@@ -145,6 +144,7 @@ PanelWindow {
             shadowColor: "#60000000"
             shadowVerticalOffset: 16
         }
+
         Rectangle {
             id: mainUiMask
             anchors.fill: mainUi
@@ -152,6 +152,7 @@ PanelWindow {
             color: "black"
             visible: false
             layer.enabled: true
+            layer.smooth: true
         }
 
         Rectangle {
@@ -162,9 +163,12 @@ PanelWindow {
             focus: true
 
             layer.enabled: true
+            layer.smooth: true
             layer.effect: MultiEffect {
                 maskEnabled: true
                 maskSource: mainUiMask
+                maskThresholdMin: 0.5
+                maskSpreadAtMin: 1.0
             }
 
             Item {
@@ -313,7 +317,7 @@ PanelWindow {
             Item {
                 id: listContainer
                 anchors.top: searchArea.bottom
-                anchors.topMargin: 16 // Breathing room below the floating pill
+                anchors.topMargin: 16
                 anchors.bottom: footer.top
                 anchors.left: parent.left
                 anchors.right: parent.right

@@ -334,6 +334,7 @@ Variants {
                                     color: "black"
                                     visible: false
                                     layer.enabled: true
+                                    layer.smooth: true
                                 }
 
                                 Image {
@@ -344,9 +345,12 @@ Variants {
                                     visible: !!delegateContainer.applicationIcon
 
                                     layer.enabled: true
+                                    layer.smooth: true
                                     layer.effect: MultiEffect {
                                         maskEnabled: true
                                         maskSource: circleMask
+                                        maskThresholdMin: 0.5
+                                        maskSpreadAtMin: 1.0
                                     }
                                 }
                             }
