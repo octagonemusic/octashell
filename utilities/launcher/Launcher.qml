@@ -9,8 +9,8 @@ import "../../theme"
 PanelWindow {
     id: launcherWindow
 
-    implicitWidth: 760
-    implicitHeight: 680
+    implicitWidth: 800
+    implicitHeight: 739
     color: "transparent"
     visible: false
 
@@ -27,27 +27,29 @@ PanelWindow {
         bottom: 170
     }
 
-    function scoreMatch(name, query) {
-        var nameLower = name.toLowerCase();
+    function scoreMatch(text, query) {
+        if (!text)
+            return -1;
+        var textLower = text.toString().toLowerCase();
         var queryLower = query.toLowerCase();
 
         // Exact match
-        if (nameLower === queryLower)
+        if (textLower === queryLower)
             return 1000;
 
-        // Full name starts with query
-        if (nameLower.startsWith(queryLower))
+        // Full string starts with query
+        if (textLower.startsWith(queryLower))
             return 800;
 
-        // Any word in the name starts with query
-        var words = nameLower.split(/[\s\-_]+/);
+        // Any word in the string starts with query
+        var words = textLower.split(/[\s\-_]+/);
         for (var i = 0; i < words.length; i++) {
             if (words[i].startsWith(queryLower))
                 return 600;
         }
 
         // single/double letter matches polluting short queries
-        if (query.length >= 3 && nameLower.indexOf(queryLower) !== -1)
+        if (query.length >= 3 && textLower.indexOf(queryLower) !== -1)
             return 200;
 
         return -1;
@@ -56,36 +58,67 @@ PanelWindow {
     function buildFilteredList() {
         var allApps = DesktopEntries.applications.values;
         var query = ctrl.searchText.trim();
+        var queryLower = query.toLowerCase();
 
         if (query === "") {
-            return allApps.slice().sort((a, b) => a.name.localeCompare(b.name));
+            // No query: show all apps, but completely hide Avahi by default
+            return allApps.filter(app => !app.name || !app.name.toLowerCase().includes("avahi")).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
         }
 
+        var isAvahiQuery = queryLower.includes("avahi");
         var scored = [];
+
         for (var i = 0; i < allApps.length; i++) {
             var entry = allApps[i];
 
+            // Hide Avahi apps unless the user explicitly searched for "avahi"
+            var isAvahiApp = entry.name && entry.name.toLowerCase().includes("avahi");
+            if (isAvahiApp && !isAvahiQuery) {
+                continue;
+            }
+
             var best = scoreMatch(entry.name, query);
 
-            if (best < 0) {
-                if (entry.genericName) {
-                    var gs = scoreMatch(entry.genericName, query);
-                    if (gs >= 600)
-                        best = Math.max(best, gs - 100);
+            // Check generic name (e.g., "Web Browser")
+            if (entry.genericName) {
+                var s = scoreMatch(entry.genericName, query);
+                if (s >= 200)
+                    best = Math.max(best, s - 50);
+            }
+
+            // Check comments
+            if (entry.comment) {
+                var s = scoreMatch(entry.comment, query);
+                if (s >= 200)
+                    best = Math.max(best, s - 100);
+            }
+
+            // Check keywords
+            if (entry.keywords) {
+                for (var j = 0; j < entry.keywords.length; j++) {
+                    var s = scoreMatch(entry.keywords[j], query);
+                    if (s >= 200)
+                        best = Math.max(best, s - 20); // High weight for exact alias hits
                 }
             }
 
-            if (best >= 0)
+            // Check the executable command
+            if (entry.execString && entry.execString.toLowerCase().includes(queryLower)) {
+                best = Math.max(best, 180);
+            }
+
+            if (best >= 0) {
                 scored.push({
                     entry: entry,
                     score: best
                 });
+            }
         }
 
         scored.sort((a, b) => {
             if (b.score !== a.score)
                 return b.score - a.score;
-            return a.entry.name.localeCompare(b.entry.name);
+            return (a.entry.name || "").localeCompare(b.entry.name || "");
         });
 
         return scored.map(s => s.entry);
