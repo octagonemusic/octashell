@@ -9,6 +9,9 @@ import "../../theme"
 PanelWindow {
     id: launcherWindow
 
+    // Add any apps you want to hide to this list
+    property var hiddenKeywords: ["avahi", "uuctl", "bssh", "bvnc"]
+
     implicitWidth: 800
     implicitHeight: 739
     color: "transparent"
@@ -61,19 +64,27 @@ PanelWindow {
         var queryLower = query.toLowerCase();
 
         if (query === "") {
-            // No query: show all apps, but completely hide Avahi by default
-            return allApps.filter(app => !app.name || !app.name.toLowerCase().includes("avahi")).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+            // No query: show all apps, but completely hide any app matching hiddenKeywords
+            return allApps.filter(app => {
+                if (!app.name)
+                    return false;
+                var n = app.name.toLowerCase();
+                return !hiddenKeywords.some(keyword => n.includes(keyword));
+            }).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
         }
 
-        var isAvahiQuery = queryLower.includes("avahi");
+        // Check if the user's search explicitly contains any of the hidden keywords
+        var isSearchingHidden = hiddenKeywords.some(keyword => queryLower.includes(keyword));
         var scored = [];
 
         for (var i = 0; i < allApps.length; i++) {
             var entry = allApps[i];
 
-            // Hide Avahi apps unless the user explicitly searched for "avahi"
-            var isAvahiApp = entry.name && entry.name.toLowerCase().includes("avahi");
-            if (isAvahiApp && !isAvahiQuery) {
+            // Hide apps matching hiddenKeywords unless explicitly searched for
+            var nameLower = entry.name ? entry.name.toLowerCase() : "";
+            var isHiddenApp = hiddenKeywords.some(keyword => nameLower.includes(keyword));
+
+            if (isHiddenApp && !isSearchingHidden) {
                 continue;
             }
 
