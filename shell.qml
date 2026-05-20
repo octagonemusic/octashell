@@ -7,6 +7,7 @@ import "notifications"
 import "utilities/clipboard"
 import "utilities/emoji"
 import "utilities/launcher"
+import "utilities/wallpaper"
 import qs.services
 
 /** Main shell entry point; manages surface orchestration. */
@@ -52,5 +53,10 @@ ShellRoot {
     // Application Launcher
     Launcher {
         id: launcherWindow
+    }
+
+    // Wallpaper Selector
+    WallpaperSelector {
+        id: wallpaperSelectorWindow
     }
 }
