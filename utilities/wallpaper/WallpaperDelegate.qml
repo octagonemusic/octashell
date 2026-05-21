@@ -6,7 +6,7 @@ Item {
     id: delegateRoot
 
     required property url fileUrl
-
+    required property var fileSize
     required property WallpaperBackend backend
 
     height: ListView.view ? ListView.view.height : 0
@@ -84,13 +84,20 @@ Item {
         Item {
             anchors.fill: imgMask
 
+            layer.enabled: true
+            layer.smooth: true
+            layer.effect: MultiEffect {
+                maskEnabled: true
+                maskSource: imgMask
+                maskThresholdMin: 0.5
+                maskSpreadAtMin: 1.0
+            }
+
             Rectangle {
                 anchors.fill: parent
-                radius: 20
                 color: Theme.surface_variant
 
                 visible: wallImg.status !== Image.Ready
-                clip: true
 
                 Column {
                     anchors.centerIn: parent
@@ -152,15 +159,57 @@ Item {
                         }
                     }
                 }
+            }
 
-                layer.enabled: true
-                layer.smooth: true
+            Rectangle {
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: 60
 
-                layer.effect: MultiEffect {
-                    maskEnabled: true
-                    maskSource: imgMask
-                    maskThresholdMin: 0.5
-                    maskSpreadAtMin: 1.0
+                visible: wallImg.status === Image.Ready
+
+                gradient: Gradient {
+                    GradientStop {
+                        position: 0.0
+                        color: "transparent"
+                    }
+                    GradientStop {
+                        position: 1.0
+                        color: "#CC000000"
+                    }
+                }
+
+                Column {
+                    anchors.bottom: parent.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.margins: 12
+                    spacing: 2
+
+                    Text {
+                        text: delegateRoot.fileName
+                        color: "white"
+                        font.family: "Google Sans Medium"
+                        font.pixelSize: 13
+                        elide: Text.ElideRight
+                        width: parent.width
+                    }
+
+                    Text {
+                        text: {
+                            let bytes = delegateRoot.fileSize;
+                            if (!bytes)
+                                return "";
+                            let kb = bytes / 1024;
+                            if (kb < 1024)
+                                return Math.round(kb) + " KB";
+                            return (kb / 1024).toFixed(1) + " MB";
+                        }
+                        color: "#DDDDDD"
+                        font.family: "Google Sans"
+                        font.pixelSize: 11
+                    }
                 }
             }
 

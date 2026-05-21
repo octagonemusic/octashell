@@ -23,7 +23,7 @@ PanelWindow {
         right: 24
     }
 
-    implicitHeight: 280
+    implicitHeight: 352
     color: "transparent"
     visible: false
 
@@ -56,6 +56,7 @@ PanelWindow {
     function closeMenu() {
         wallpaperWindow.visible = false;
         focusGrab.active = false;
+        searchInput.text = ""; // Clear search on close
     }
 
     Timer {
@@ -174,12 +175,133 @@ PanelWindow {
                 maskSpreadAtMin: 1.0
             }
 
+            property string searchQuery: searchInput.text.trim()
+
+            Rectangle {
+                id: searchBarContainer
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.margins: 20
+                height: 56
+                radius: 28
+
+                color: searchInput.activeFocus ? Theme.surface_container_highest : Theme.surface_container_high
+                border.width: searchInput.activeFocus ? 2 : 0
+                border.color: searchInput.activeFocus ? Theme.primary : "transparent"
+
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 150
+                    }
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.IBeamCursor
+                    onClicked: {
+                        searchInput.forceActiveFocus();
+                        searchInput.cursorPosition = searchInput.text.length;
+                    }
+                }
+
+                Text {
+                    id: searchIcon
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.leftMargin: 20
+                    text: "search"
+                    font.family: "Material Symbols Rounded"
+                    font.pixelSize: 25
+                    color: searchInput.activeFocus ? Theme.primary : Theme.on_surface_variant
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 150
+                        }
+                    }
+                }
+
+                TextInput {
+                    id: searchInput
+                    anchors.left: searchIcon.right
+                    anchors.right: clearIcon.visible ? clearIcon.left : parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.leftMargin: 12
+                    anchors.rightMargin: 12
+
+                    color: Theme.on_surface
+                    font.family: "Google Sans"
+                    font.pixelSize: 18
+                    verticalAlignment: TextInput.AlignVCenter
+                    selectByMouse: true
+                    clip: true
+
+                    Text {
+                        anchors.fill: parent
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Search wallpapers..."
+                        color: Theme.on_surface_variant
+                        opacity: 0.6
+                        visible: !searchInput.text && !searchInput.activeFocus
+                        font: searchInput.font
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    Keys.onPressed: event => {
+                        if (event.key === Qt.Key_Escape) {
+                            searchInput.focus = false;
+                            listView.forceActiveFocus();
+                            event.accepted = true;
+                        } else if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return || event.key === Qt.Key_Down) {
+                            listView.forceActiveFocus();
+                            if (listView.count > 0 && listView.currentIndex === -1) {
+                                listView.currentIndex = 0;
+                            }
+                            event.accepted = true;
+                        }
+                    }
+                }
+
+                Text {
+                    id: clearIcon
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.rightMargin: 20
+                    text: "close"
+                    font.family: "Material Symbols Rounded"
+                    font.pixelSize: 20
+                    color: clearMouseArea.containsMouse ? Theme.on_surface : Theme.on_surface_variant
+                    visible: searchInput.text.length > 0
+
+                    MouseArea {
+                        id: clearMouseArea
+                        anchors.fill: parent
+                        anchors.margins: -10
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            searchInput.text = "";
+                            searchInput.forceActiveFocus();
+                        }
+                    }
+                }
+            }
+
             FolderListModel {
                 id: wallModel
 
                 folder: "file://" + wallpaperBackend.wallDir
-                nameFilters: ["*.png", "*.jpg", "*.jpeg", "*.webp"]
                 showDirs: false
+                caseSensitive: false
+
+                nameFilters: {
+                    let q = mainUi.searchQuery;
+                    if (q === "") {
+                        return ["*.png", "*.jpg", "*.jpeg", "*.webp"];
+                    } else {
+                        return ["*" + q + "*.png", "*" + q + "*.jpg", "*" + q + "*.jpeg", "*" + q + "*.webp"];
+                    }
+                }
 
                 onStatusChanged: {
                     if (status === FolderListModel.Ready && wallpaperWindow.visible && wallpaperBackend.layoutPending) {
@@ -188,128 +310,148 @@ PanelWindow {
                 }
             }
 
-            ListView {
-                id: listView
-
-                anchors.fill: parent
-                anchors.margins: 20
-
-                orientation: ListView.Horizontal
-                spacing: 20
-                model: wallModel
-
-                snapMode: ListView.SnapToItem
-                highlightFollowsCurrentItem: true
-
-                cacheBuffer: wallpaperBackend.listCacheBuffer
-                reuseItems: true
-                displayMarginBeginning: wallpaperBackend.listRenderBuffer
-                displayMarginEnd: wallpaperBackend.listRenderBuffer
-
-                visible: wallpaperBackend.isListReady
-                opacity: wallpaperBackend.isListReady ? 1.0 : 0.0
-
-                Behavior on opacity {
-                    NumberAnimation {
-                        duration: 120
-                        easing.type: Easing.OutQuad
-                    }
-                }
-
-                Keys.onPressed: event => {
-                    if (event.modifiers !== Qt.NoModifier)
-                        return;
-                    if (event.key === Qt.Key_Escape) {
-                        wallpaperWindow.closeMenu();
-                        event.accepted = true;
-                    } else if (event.key === Qt.Key_Right || event.key === Qt.Key_L) {
-                        listView.incrementCurrentIndex();
-                        event.accepted = true;
-                    } else if (event.key === Qt.Key_Left || event.key === Qt.Key_H) {
-                        listView.decrementCurrentIndex();
-                        event.accepted = true;
-                    } else if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return) {
-                        if (listView.currentItem) {
-                            listView.currentItem.triggerSetWallpaper();
-                        }
-                        event.accepted = true;
-                    }
-                }
-
-                delegate: WallpaperDelegate {
-                    // This is now safely pointing to the distinct ID
-                    backend: wallpaperBackend
-                    onWallpaperSelected: wallpaperWindow.closeMenu()
-                }
-            }
-
-            Rectangle {
+            Item {
+                id: listContainer
+                anchors.top: searchBarContainer.bottom
+                anchors.bottom: parent.bottom
                 anchors.left: parent.left
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-
-                width: 80
-
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
-
-                    GradientStop {
-                        position: 0.0
-                        color: Theme.surface_container
-                    }
-
-                    GradientStop {
-                        position: 1.0
-                        color: "transparent"
-                    }
-                }
-            }
-
-            Rectangle {
                 anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
 
-                width: 80
+                ListView {
+                    id: listView
 
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
+                    anchors.fill: parent
+                    anchors.topMargin: 16
+                    anchors.bottomMargin: 20
+                    anchors.leftMargin: 20
+                    anchors.rightMargin: 20
 
-                    GradientStop {
-                        position: 0.0
-                        color: "transparent"
+                    orientation: ListView.Horizontal
+                    spacing: 20
+                    model: wallModel
+
+                    snapMode: ListView.SnapToItem
+                    highlightFollowsCurrentItem: true
+
+                    cacheBuffer: wallpaperBackend.listCacheBuffer
+                    reuseItems: true
+                    displayMarginBeginning: wallpaperBackend.listRenderBuffer
+                    displayMarginEnd: wallpaperBackend.listRenderBuffer
+
+                    visible: wallpaperBackend.isListReady
+                    opacity: wallpaperBackend.isListReady ? 1.0 : 0.0
+
+                    Behavior on opacity {
+                        NumberAnimation {
+                            duration: 120
+                            easing.type: Easing.OutQuad
+                        }
                     }
 
-                    GradientStop {
-                        position: 1.0
-                        color: Theme.surface_container
+                    Keys.onPressed: event => {
+                        if (event.modifiers !== Qt.NoModifier)
+                            return;
+                        if (event.key === Qt.Key_Escape) {
+                            wallpaperWindow.closeMenu();
+                            event.accepted = true;
+                        } else if (event.key === Qt.Key_Slash) {
+                            searchInput.forceActiveFocus();
+                            searchInput.cursorPosition = searchInput.text.length;
+                            event.accepted = true;
+                        } else if (event.key === Qt.Key_Right || event.key === Qt.Key_L) {
+                            listView.incrementCurrentIndex();
+                            event.accepted = true;
+                        } else if (event.key === Qt.Key_Left || event.key === Qt.Key_H) {
+                            listView.decrementCurrentIndex();
+                            event.accepted = true;
+                        } else if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return) {
+                            if (listView.currentItem) {
+                                listView.currentItem.triggerSetWallpaper();
+                            }
+                            event.accepted = true;
+                        }
+                    }
+
+                    delegate: WallpaperDelegate {
+                        backend: wallpaperBackend
+                        onWallpaperSelected: wallpaperWindow.closeMenu()
                     }
                 }
-            }
 
-            Text {
-                anchors.centerIn: parent
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 80
 
-                text: "No wallpapers found in\n" + wallpaperBackend.wallDir
+                    opacity: listView.atXBeginning ? 0.0 : 1.0
+                    Behavior on opacity {
+                        NumberAnimation {
+                            duration: 150
+                        }
+                    }
 
-                horizontalAlignment: Text.AlignHCenter
-
-                visible: wallModel.count === 0 && wallModel.status === FolderListModel.Ready && wallpaperWindow.visible
-
-                opacity: wallpaperBackend.isListReady ? 1.0 : 0.0
-
-                Behavior on opacity {
-                    NumberAnimation {
-                        duration: 150
-                        easing.type: Easing.OutSine
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop {
+                            position: 0.0
+                            color: Theme.surface_container
+                        }
+                        GradientStop {
+                            position: 1.0
+                            color: "transparent"
+                        }
                     }
                 }
 
-                color: Theme.on_surface_variant
+                Rectangle {
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 80
 
-                font {
-                    family: "Google Sans Medium"
-                    pixelSize: 18
+                    opacity: listView.atXEnd || listView.count === 0 ? 0.0 : 1.0
+                    Behavior on opacity {
+                        NumberAnimation {
+                            duration: 150
+                        }
+                    }
+
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop {
+                            position: 0.0
+                            color: "transparent"
+                        }
+                        GradientStop {
+                            position: 1.0
+                            color: Theme.surface_container
+                        }
+                    }
+                }
+
+                Text {
+                    anchors.centerIn: parent
+
+                    text: mainUi.searchQuery === "" ? "No wallpapers found in\n" + wallpaperBackend.wallDir : "No results for '" + mainUi.searchQuery + "'"
+
+                    horizontalAlignment: Text.AlignHCenter
+
+                    visible: wallModel.count === 0 && wallModel.status === FolderListModel.Ready && wallpaperWindow.visible
+                    opacity: wallpaperBackend.isListReady ? 1.0 : 0.0
+
+                    Behavior on opacity {
+                        NumberAnimation {
+                            duration: 150
+                            easing.type: Easing.OutSine
+                        }
+                    }
+
+                    color: Theme.on_surface_variant
+                    font {
+                        family: "Google Sans Medium"
+                        pixelSize: 18
+                    }
                 }
             }
         }
