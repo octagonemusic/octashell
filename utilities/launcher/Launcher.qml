@@ -142,298 +142,309 @@ PanelWindow {
             if (launcherWindow.visible) {
                 closeMenu();
             } else {
-                searchField.text = "";
-                ctrl.searchText = "";
-                launcherWindow.visible = true;
-                focusGrab.active = true;
-
-                searchField.forceActiveFocus();
-                listView.currentIndex = 0;
+                ctrl.searchText = ""; // Reset backend state
+                launcherWindow.visible = true; // Triggers UI build
             }
         }
 
         onCloseMenuRequested: closeMenu()
     }
 
-    HyprlandFocusGrab {
-        id: focusGrab
-        windows: [launcherWindow]
-        onCleared: closeMenu()
-    }
-
     function closeMenu() {
-        launcherWindow.visible = false;
-        focusGrab.active = false;
+        launcherWindow.visible = false; // Destroys the UI and frees memory
     }
 
-    Item {
-        anchors.fill: parent
-        anchors.margins: 80
-        anchors.bottomMargin: 50
+    LazyLoader {
+        id: contentLoader
 
-        Rectangle {
-            id: shadowCaster
-            anchors.fill: mainUi
-            anchors.margins: 2
-            radius: 26
-            color: "black"
-            visible: false
-        }
+        activeAsync: launcherWindow.visible
 
-        MultiEffect {
-            anchors.fill: shadowCaster
-            source: shadowCaster
-            shadowEnabled: true
-            shadowBlur: 1.5
-            shadowColor: "#60000000"
-            shadowVerticalOffset: 16
-        }
-
-        Rectangle {
-            id: mainUiMask
-            anchors.fill: mainUi
-            radius: 28
-            color: "black"
-            visible: false
-            layer.enabled: true
-            layer.smooth: true
-        }
-
-        Rectangle {
-            id: mainUi
-            anchors.fill: parent
-            color: Theme.surface_container
-            radius: 28
-            focus: true
-
-            layer.enabled: true
-            layer.smooth: true
-            layer.effect: MultiEffect {
-                maskEnabled: true
-                maskSource: mainUiMask
-                maskThresholdMin: 0.5
-                maskSpreadAtMin: 1.0
-            }
-
+        component: Component {
             Item {
-                id: edgeBanner
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.right: parent.right
-                height: 180
+                id: lazyContentRoot
 
-                Image {
-                    anchors.fill: parent
-                    source: Theme.wallpaper
-                    fillMode: Image.PreserveAspectCrop
-                    asynchronous: true
+                parent: launcherWindow.contentItem
+                anchors.fill: parent
+
+                anchors.margins: 80
+                anchors.bottomMargin: 50
+
+                HyprlandFocusGrab {
+                    id: focusGrab
+                    windows: [launcherWindow]
+                    onCleared: launcherWindow.closeMenu()
                 }
 
-                Rectangle {
-                    anchors.fill: parent
-                    color: Theme.primary
-                    opacity: 0.15
-                }
-
-                Rectangle {
-                    anchors.bottom: parent.bottom
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    height: 80
-                    gradient: Gradient {
-                        GradientStop {
-                            position: 0.0
-                            color: "transparent"
-                        }
-                        GradientStop {
-                            position: 1.0
-                            color: "#40000000"
-                        }
-                    }
-                }
-            }
-
-            Keys.onPressed: event => {
-                if (searchField.activeFocus)
-                    return;
-
-                if (event.key === Qt.Key_Escape) {
-                    closeMenu();
-                    event.accepted = true;
-                } else if (event.key === Qt.Key_Slash || event.key === Qt.Key_I) {
+                Component.onCompleted: {
+                    focusGrab.active = true;
                     searchField.forceActiveFocus();
-                    event.accepted = true;
-                } else if (event.key === Qt.Key_J || event.key === Qt.Key_Down) {
-                    listView.incrementCurrentIndex();
-                    event.accepted = true;
-                } else if (event.key === Qt.Key_K || event.key === Qt.Key_Up) {
-                    listView.decrementCurrentIndex();
-                    event.accepted = true;
-                } else if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return) {
-                    if (listView.currentItem)
-                        listView.currentItem.launch();
-                    event.accepted = true;
                 }
-            }
 
-            Rectangle {
-                id: searchArea
-                height: 64
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.leftMargin: 32
-                anchors.rightMargin: 32
+                Rectangle {
+                    id: shadowCaster
+                    anchors.fill: mainUi
+                    anchors.margins: 2
+                    radius: 26
+                    color: "black"
+                    visible: false
+                }
 
-                anchors.verticalCenter: edgeBanner.bottom
-
-                radius: height / 2
-                color: Theme.surface_container_highest
-
-                layer.enabled: true
-                layer.effect: MultiEffect {
+                MultiEffect {
+                    anchors.fill: shadowCaster
+                    source: shadowCaster
                     shadowEnabled: true
-                    shadowBlur: 1.0
-                    shadowColor: "#40000000"
-                    shadowVerticalOffset: 4
+                    shadowBlur: 1.5
+                    shadowColor: "#60000000"
+                    shadowVerticalOffset: 16
                 }
 
-                TextField {
-                    id: searchField
+                Rectangle {
+                    id: mainUiMask
+                    anchors.fill: mainUi
+                    radius: 28
+                    color: "black"
+                    visible: false
+                    layer.enabled: true
+                    layer.smooth: true
+                }
+
+                Rectangle {
+                    id: mainUi
                     anchors.fill: parent
-                    leftPadding: 60
-                    rightPadding: 24
+                    color: Theme.surface_container
+                    radius: 28
+                    focus: true
 
-                    font {
-                        family: "Google Sans"
-                        pixelSize: 22
-                        weight: Font.Medium
+                    layer.enabled: true
+                    layer.smooth: true
+                    layer.effect: MultiEffect {
+                        maskEnabled: true
+                        maskSource: mainUiMask
+                        maskThresholdMin: 0.5
+                        maskSpreadAtMin: 1.0
                     }
-                    color: Theme.on_surface
-                    selectionColor: Theme.primary_container
-                    selectedTextColor: Theme.on_primary_container
 
-                    placeholderText: "Search apps..."
-                    placeholderTextColor: Theme.on_surface_variant
+                    Item {
+                        id: edgeBanner
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        height: 180
 
-                    background: Item {
-                        Text {
+                        Image {
+                            anchors.fill: parent
+                            source: Theme.wallpaper
+                            fillMode: Image.PreserveAspectCrop
+                            asynchronous: true
+                        }
+
+                        Rectangle {
+                            anchors.fill: parent
+                            color: Theme.primary
+                            opacity: 0.15
+                        }
+
+                        Rectangle {
+                            anchors.bottom: parent.bottom
                             anchors.left: parent.left
-                            anchors.leftMargin: 20
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "search"
-                            font {
-                                family: "Material Symbols Rounded"
-                                pixelSize: 28
-                            }
-                            color: searchField.activeFocus ? Theme.primary : Theme.on_surface_variant
-                            Behavior on color {
-                                ColorAnimation {
-                                    duration: 150
+                            anchors.right: parent.right
+                            height: 80
+                            gradient: Gradient {
+                                GradientStop {
+                                    position: 0.0
+                                    color: "transparent"
+                                }
+                                GradientStop {
+                                    position: 1.0
+                                    color: "#40000000"
                                 }
                             }
                         }
                     }
 
-                    onTextChanged: {
-                        ctrl.searchText = text;
-                        listView.currentIndex = 0;
-                    }
-
                     Keys.onPressed: event => {
+                        if (searchField.activeFocus)
+                            return;
+
                         if (event.key === Qt.Key_Escape) {
-                            mainUi.forceActiveFocus();
+                            launcherWindow.closeMenu();
+                            event.accepted = true;
+                        } else if (event.key === Qt.Key_Slash || event.key === Qt.Key_I) {
+                            searchField.forceActiveFocus();
+                            event.accepted = true;
+                        } else if (event.key === Qt.Key_J || event.key === Qt.Key_Down) {
+                            listView.incrementCurrentIndex();
+                            event.accepted = true;
+                        } else if (event.key === Qt.Key_K || event.key === Qt.Key_Up) {
+                            listView.decrementCurrentIndex();
                             event.accepted = true;
                         } else if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return) {
                             if (listView.currentItem)
                                 listView.currentItem.launch();
                             event.accepted = true;
-                        } else if (event.key === Qt.Key_Down || (event.key === Qt.Key_J && (event.modifiers & Qt.ControlModifier))) {
-                            listView.incrementCurrentIndex();
-                            event.accepted = true;
-                        } else if (event.key === Qt.Key_Up || (event.key === Qt.Key_K && (event.modifiers & Qt.ControlModifier))) {
-                            listView.decrementCurrentIndex();
-                            event.accepted = true;
                         }
                     }
-                }
-            }
 
-            Item {
-                id: listContainer
-                anchors.top: searchArea.bottom
-                anchors.topMargin: 16
-                anchors.bottom: footer.top
-                anchors.left: parent.left
-                anchors.right: parent.right
-                clip: true
+                    Rectangle {
+                        id: searchArea
+                        height: 64
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.leftMargin: 32
+                        anchors.rightMargin: 32
 
-                ListView {
-                    id: listView
-                    anchors.fill: parent
-                    topMargin: 12
-                    bottomMargin: 24
-                    spacing: 4
+                        anchors.verticalCenter: edgeBanner.bottom
 
-                    highlightMoveDuration: 120
-                    highlightFollowsCurrentItem: true
-                    delegate: LauncherDelegate {}
+                        radius: height / 2
+                        color: Theme.surface_container_highest
 
-                    model: ScriptModel {
-                        values: launcherWindow.buildFilteredList()
-                    }
-                }
-
-                Rectangle {
-                    anchors {
-                        bottom: parent.bottom
-                        left: parent.left
-                        right: parent.right
-                    }
-                    height: 48
-                    gradient: Gradient {
-                        GradientStop {
-                            position: 0.0
-                            color: "transparent"
+                        layer.enabled: true
+                        layer.effect: MultiEffect {
+                            shadowEnabled: true
+                            shadowBlur: 1.0
+                            shadowColor: "#40000000"
+                            shadowVerticalOffset: 4
                         }
-                        GradientStop {
-                            position: 1.0
-                            color: Theme.surface_container
+
+                        TextField {
+                            id: searchField
+                            anchors.fill: parent
+                            leftPadding: 60
+                            rightPadding: 24
+
+                            font {
+                                family: "Google Sans"
+                                pixelSize: 22
+                                weight: Font.Medium
+                            }
+                            color: Theme.on_surface
+                            selectionColor: Theme.primary_container
+                            selectedTextColor: Theme.on_primary_container
+
+                            placeholderText: "Search apps..."
+                            placeholderTextColor: Theme.on_surface_variant
+
+                            background: Item {
+                                Text {
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 20
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "search"
+                                    font {
+                                        family: "Material Symbols Rounded"
+                                        pixelSize: 28
+                                    }
+                                    color: searchField.activeFocus ? Theme.primary : Theme.on_surface_variant
+                                    Behavior on color {
+                                        ColorAnimation {
+                                            duration: 150
+                                        }
+                                    }
+                                }
+                            }
+
+                            onTextChanged: {
+                                ctrl.searchText = text;
+                                listView.currentIndex = 0;
+                            }
+
+                            Keys.onPressed: event => {
+                                if (event.key === Qt.Key_Escape) {
+                                    mainUi.forceActiveFocus();
+                                    event.accepted = true;
+                                } else if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return) {
+                                    if (listView.currentItem)
+                                        listView.currentItem.launch();
+                                    event.accepted = true;
+                                } else if (event.key === Qt.Key_Down || (event.key === Qt.Key_J && (event.modifiers & Qt.ControlModifier))) {
+                                    listView.incrementCurrentIndex();
+                                    event.accepted = true;
+                                } else if (event.key === Qt.Key_Up || (event.key === Qt.Key_K && (event.modifiers & Qt.ControlModifier))) {
+                                    listView.decrementCurrentIndex();
+                                    event.accepted = true;
+                                }
+                            }
                         }
                     }
-                }
-            }
 
-            Text {
-                id: emptyMessage
-                anchors.centerIn: listContainer
-                text: "No matching applications"
-                visible: listView.count === 0
-                color: Theme.on_surface_variant
-                font {
-                    family: "Google Sans Medium"
-                    pixelSize: 18
-                }
-            }
+                    Item {
+                        id: listContainer
+                        anchors.top: searchArea.bottom
+                        anchors.topMargin: 16
+                        anchors.bottom: footer.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        clip: true
 
-            Item {
-                id: footer
-                anchors {
-                    bottom: parent.bottom
-                    left: parent.left
-                    right: parent.right
-                }
-                height: 48
+                        ListView {
+                            id: listView
+                            anchors.fill: parent
+                            topMargin: 12
+                            bottomMargin: 24
+                            spacing: 4
 
-                Text {
-                    anchors.centerIn: parent
-                    text: "[/] Search  •  [Enter] Launch  •  [J/K] Navigate  •  [Esc] Close"
-                    color: Theme.on_surface_variant
-                    opacity: 0.7
-                    font {
-                        family: "Google Sans"
-                        pixelSize: 12
-                        weight: Font.Medium
-                        letterSpacing: 0.5
+                            highlightMoveDuration: 120
+                            highlightFollowsCurrentItem: true
+                            delegate: LauncherDelegate {}
+
+                            model: ScriptModel {
+                                values: launcherWindow.buildFilteredList()
+                            }
+                        }
+
+                        Rectangle {
+                            anchors {
+                                bottom: parent.bottom
+                                left: parent.left
+                                right: parent.right
+                            }
+                            height: 48
+                            gradient: Gradient {
+                                GradientStop {
+                                    position: 0.0
+                                    color: "transparent"
+                                }
+                                GradientStop {
+                                    position: 1.0
+                                    color: Theme.surface_container
+                                }
+                            }
+                        }
+                    }
+
+                    Text {
+                        id: emptyMessage
+                        anchors.centerIn: listContainer
+                        text: "No matching applications"
+                        visible: listView.count === 0
+                        color: Theme.on_surface_variant
+                        font {
+                            family: "Google Sans Medium"
+                            pixelSize: 18
+                        }
+                    }
+
+                    Item {
+                        id: footer
+                        anchors {
+                            bottom: parent.bottom
+                            left: parent.left
+                            right: parent.right
+                        }
+                        height: 48
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "[/] Search  •  [Enter] Launch  •  [J/K] Navigate  •  [Esc] Close"
+                            color: Theme.on_surface_variant
+                            opacity: 0.7
+                            font {
+                                family: "Google Sans"
+                                pixelSize: 12
+                                weight: Font.Medium
+                                letterSpacing: 0.5
+                            }
+                        }
                     }
                 }
             }
