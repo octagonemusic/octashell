@@ -199,6 +199,7 @@ Variants {
                 Connections {
                     target: notificationEntry
                     function onClosed(reason) {
+                        expiryTimer.stop();
                         notificationPopup.disposeNotification(notificationEntry.id);
                     }
                 }
@@ -215,7 +216,7 @@ Variants {
 
                     onFinished: {
                         if (lifeSpanProgress <= 0.01) {
-                            if (notificationPopup.visible) {
+                            if (notificationPopup.visible && notificationEntry && typeof notificationEntry.expire === "function") {
                                 notificationEntry.expire();
                             }
                         }
