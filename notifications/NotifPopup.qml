@@ -6,20 +6,15 @@ import QtQuick.Effects
 import QtQuick.Shapes
 import "../theme"
 
-/**
- * Renders a stack of transient desktop notifications on the focused monitor.
- */
 Variants {
     id: root
     model: Quickshell.screens
 
-    // track hovered state of notification
     property int hoveredNotificationId: -1
 
     delegate: PanelWindow {
         id: notificationPopup
 
-        // --- Screen & Model Configuration ---
         required property var modelData
         screen: modelData
 
@@ -48,6 +43,7 @@ Variants {
         readonly property bool surfaceMapped: hasNotifications || exitTimer.running
 
         property real stableHeight: 0
+
         Binding on stableHeight {
             when: hasNotifications
             value: notificationStack.contentHeight + 40
@@ -56,7 +52,6 @@ Variants {
         implicitWidth: surfaceMapped ? 390 : 0
         implicitHeight: surfaceMapped ? stableHeight : 0
 
-        // --- LayerShell Properties ---
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "notification_overlay"
         WlrLayershell.exclusionMode: ExclusionMode.Ignore
@@ -68,17 +63,18 @@ Variants {
             top: true
             right: true
         }
+
         margins {
             top: 40
             right: 5
         }
 
-        // --- Notification Service Integration ---
         Connections {
             target: CentralNotifServer
 
             function onNotification(notification) {
                 let existingIndex = -1;
+
                 for (let i = 0; i < activeNotifications.count; i++) {
                     if (activeNotifications.get(i).notificationEntry.id === notification.id) {
                         existingIndex = i;
@@ -96,7 +92,6 @@ Variants {
             }
         }
 
-        // --- Notification Stack Layout ---
         ListView {
             id: notificationStack
 
@@ -108,7 +103,8 @@ Variants {
             width: 350
             height: contentHeight
             interactive: false
-            spacing: 12
+            spacing: 14
+
             anchors {
                 top: parent.top
                 right: parent.right
@@ -156,28 +152,49 @@ Variants {
             }
 
             displaced: Transition {
-                NumberAnimation {
-                    properties: "y"
-                    duration: 350
-                    easing.type: Easing.OutBack
-                    easing.overshoot: 1.05
+                ParallelAnimation {
+                    NumberAnimation {
+                        properties: "y"
+                        duration: 350
+                        easing.type: Easing.OutBack
+                        easing.overshoot: 1.05
+                    }
+                    NumberAnimation {
+                        properties: "x"
+                        to: 0
+                        duration: 350
+                        easing.type: Easing.OutBack
+                        easing.overshoot: 1.05
+                    }
+                    NumberAnimation {
+                        property: "opacity"
+                        to: 1
+                        duration: 250
+                    }
                 }
             }
         }
 
-        // --- Notification Item Delegate ---
         Component {
             id: notificationDelegate
 
             Item {
                 id: delegateContainer
+
                 width: 350
                 height: notificationCard.height + 20
 
                 required property var notificationEntry
+
                 readonly property string applicationName: notificationEntry.appName || "Notification"
                 readonly property var applicationIcon: notificationEntry.image || notificationEntry.appIcon || ""
+
                 property real lifeSpanProgress: 1.0
+
+                onNotificationEntryChanged: {
+                    lifeSpanProgress = 1.0;
+                    expiryTimer.restart();
+                }
 
                 Connections {
                     target: notificationEntry
@@ -186,7 +203,6 @@ Variants {
                     }
                 }
 
-                /** Automatic expiration timer */
                 NumberAnimation {
                     id: expiryTimer
                     target: delegateContainer
@@ -195,7 +211,6 @@ Variants {
                     to: 0.0
                     duration: 7000
                     running: true
-
                     paused: root.hoveredNotificationId === notificationEntry.id
 
                     onFinished: {
@@ -207,27 +222,30 @@ Variants {
                     }
                 }
 
-                // --- Notification Card ---
                 Rectangle {
                     id: notificationCard
+
                     width: parent.width
-                    height: layoutContent.implicitHeight + 32
+                    height: layoutContent.implicitHeight + 36
                     y: 4
-                    radius: 12
+
+                    // M3 Expressive Shape
+                    radius: 28
+
                     border.width: 1
-                    border.color: Theme.outline_variant
+                    border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.55)
 
-                    color: interactionArea.containsMouse ? Qt.lighter(Theme.surface_container, 1.04) : Theme.surface_container
-                    scale: interactionArea.pressed ? 0.96 : 1.0
+                    color: Theme.surface_container
 
+                    scale: interactionArea.pressed ? 0.975 : 1.0
                     layer.enabled: true
+
                     layer.effect: MultiEffect {
                         shadowEnabled: true
-                        shadowColor: "#40000000"
-
-                        blurMax: 32
-                        shadowBlur: interactionArea.containsMouse ? 0.5 : 0.2
-                        shadowVerticalOffset: interactionArea.containsMouse ? 6 : 2
+                        shadowColor: "#1A000000"
+                        blurMax: 48
+                        shadowBlur: interactionArea.containsMouse ? 1.0 : 0.6
+                        shadowVerticalOffset: interactionArea.containsMouse ? 8 : 4
 
                         Behavior on shadowBlur {
                             NumberAnimation {
@@ -243,16 +261,29 @@ Variants {
                         }
                     }
 
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: 150
+                    Behavior on scale {
+                        NumberAnimation {
+                            duration: 220
+                            easing.type: Easing.OutBack
                         }
                     }
 
-                    Behavior on scale {
-                        NumberAnimation {
-                            duration: 200
-                            easing.type: Easing.OutBack
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: parent.radius
+
+                        color: {
+                            if (interactionArea.pressed)
+                                return Qt.rgba(Theme.on_surface.r, Theme.on_surface.g, Theme.on_surface.b, 0.10);
+                            if (interactionArea.containsMouse)
+                                return Qt.rgba(Theme.on_surface.r, Theme.on_surface.g, Theme.on_surface.b, 0.08);
+                            return "transparent";
+                        }
+
+                        Behavior on color {
+                            ColorAnimation {
+                                duration: 150
+                            }
                         }
                     }
 
@@ -271,7 +302,6 @@ Variants {
 
                         onClicked: {
                             let invoked = false;
-
                             if (notificationEntry.actions) {
                                 for (let i = 0; i < notificationEntry.actions.length; i++) {
                                     if (notificationEntry.actions[i].identifier === "default") {
@@ -281,7 +311,6 @@ Variants {
                                     }
                                 }
                             }
-
                             if (!invoked) {
                                 notificationEntry.dismiss();
                             }
@@ -290,24 +319,25 @@ Variants {
 
                     Column {
                         id: layoutContent
-                        width: parent.width - 32
+
+                        width: parent.width - 40
                         anchors.centerIn: parent
-                        spacing: 12
+
+                        spacing: 4
 
                         Item {
                             width: parent.width
-                            height: Math.max(iconWrapper.height, textStack.implicitHeight)
+                            height: 32
 
                             Item {
-                                id: iconWrapper
-                                width: 48
-                                height: 48
-                                anchors {
-                                    left: parent.left
-                                    top: parent.top
-                                }
+                                id: headerIconWrapper
 
-                                // Fallback icon / initial state
+                                width: 24
+                                height: 24
+
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left
+
                                 Rectangle {
                                     anchors.fill: parent
                                     radius: width / 2
@@ -320,16 +350,15 @@ Variants {
                                         color: Theme.on_primary_container
                                         font {
                                             family: "Google Sans Medium"
-                                            pixelSize: 24
+                                            pixelSize: 13
                                             bold: true
                                         }
                                     }
                                 }
 
                                 Rectangle {
-                                    id: circleMask
-                                    width: iconWrapper.width
-                                    height: iconWrapper.height
+                                    id: headerMask
+                                    anchors.fill: parent
                                     radius: width / 2
                                     color: "black"
                                     visible: false
@@ -338,75 +367,50 @@ Variants {
                                 }
 
                                 Image {
-                                    id: iconSrc
                                     anchors.fill: parent
                                     source: delegateContainer.applicationIcon
                                     fillMode: Image.PreserveAspectCrop
                                     visible: !!delegateContainer.applicationIcon
-
                                     layer.enabled: true
                                     layer.smooth: true
+
                                     layer.effect: MultiEffect {
                                         maskEnabled: true
-                                        maskSource: circleMask
+                                        maskSource: headerMask
                                         maskThresholdMin: 0.5
                                         maskSpreadAtMin: 1.0
                                     }
                                 }
                             }
 
-                            Column {
-                                id: textStack
-                                spacing: 4
-                                anchors {
-                                    left: iconWrapper.right
-                                    right: closeAction.left
-                                    top: parent.top
-                                    leftMargin: 12
-                                    rightMargin: 8
-                                }
+                            Text {
+                                text: delegateContainer.applicationName
+                                color: Theme.primary
 
-                                Text {
-                                    text: delegateContainer.applicationName
-                                    color: Theme.on_surface_variant
-                                    font {
-                                        family: "Google Sans Medium"
-                                        pixelSize: 13
-                                    }
-                                    width: parent.width
-                                }
-                                Text {
-                                    text: notificationEntry.summary
-                                    color: Theme.on_surface
-                                    font {
-                                        family: "Google Sans Medium"
-                                        pixelSize: 17
-                                        bold: true
-                                    }
-                                    width: parent.width
-                                    elide: Text.ElideRight
-                                }
-                                Text {
-                                    text: notificationEntry.body
-                                    color: Theme.on_surface_variant
-                                    font {
-                                        family: "Google Sans"
-                                        pixelSize: 15
-                                    }
-                                    width: parent.width
-                                    wrapMode: Text.WordWrap
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: headerIconWrapper.right
+                                anchors.leftMargin: 12
+
+                                font {
+                                    family: "Google Sans Medium"
+                                    pixelSize: 14
                                 }
                             }
 
+                            // =========================================
+                            // Close Action
+                            // =========================================
                             Rectangle {
                                 id: closeAction
-                                width: 28
-                                height: 28
-                                radius: 14
+
+                                width: 32
+                                height: 32
+                                radius: 16
                                 color: "transparent"
+
                                 anchors {
-                                    top: parent.top
                                     right: parent.right
+                                    verticalCenter: parent.verticalCenter
                                 }
 
                                 Behavior on color {
@@ -423,8 +427,24 @@ Variants {
 
                                     ShapePath {
                                         fillColor: "transparent"
+                                        strokeColor: Qt.rgba(Theme.critical.r, Theme.critical.g, Theme.critical.b, 0.2)
+                                        strokeWidth: 4
+                                        capStyle: ShapePath.RoundCap
+
+                                        PathAngleArc {
+                                            centerX: closeAction.width / 2
+                                            centerY: closeAction.height / 2
+                                            radiusX: (closeAction.width / 2) - 2.5
+                                            radiusY: (closeAction.height / 2) - 2.5
+                                            startAngle: 0
+                                            sweepAngle: 360
+                                        }
+                                    }
+
+                                    ShapePath {
+                                        fillColor: "transparent"
                                         strokeColor: Theme.critical
-                                        strokeWidth: 3
+                                        strokeWidth: 4
                                         capStyle: ShapePath.RoundCap
 
                                         PathAngleArc {
@@ -457,6 +477,7 @@ Variants {
                                             }
                                         }
                                     }
+
                                     Rectangle {
                                         width: parent.width
                                         height: 2
@@ -477,13 +498,48 @@ Variants {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
-                                    onEntered: closeAction.color = Qt.rgba(Theme.surface_variant.r, Theme.surface_variant.g, Theme.surface_variant.b, 0.4)
+
+                                    onEntered: closeAction.color = Qt.rgba(Theme.on_surface.r, Theme.on_surface.g, Theme.on_surface.b, 0.08)
                                     onExited: closeAction.color = "transparent"
                                     onClicked: event => {
                                         event.accepted = true;
                                         notificationEntry.dismiss();
                                     }
                                 }
+                            }
+                        }
+
+                        Column {
+                            width: parent.width
+                            spacing: 4
+
+                            Text {
+                                text: notificationEntry.summary
+                                color: Theme.on_surface
+
+                                font {
+                                    family: "Google Sans Medium"
+                                    pixelSize: 16
+                                    bold: true
+                                }
+
+                                width: parent.width
+                                elide: Text.ElideRight
+                            }
+
+                            Text {
+                                text: notificationEntry.body
+                                color: Theme.on_surface_variant
+
+                                font {
+                                    family: "Google Sans"
+                                    pixelSize: 14
+                                }
+
+                                width: parent.width
+                                wrapMode: Text.WordWrap
+                                maximumLineCount: 3
+                                elide: Text.ElideRight
                             }
                         }
                     }
