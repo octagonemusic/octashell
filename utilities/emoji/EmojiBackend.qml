@@ -56,6 +56,10 @@ Item {
     }
 
     function processSelection(emojiChar, isShift) {
+        if (backend.pendingRecents.length > 100) {
+            backend.pendingRecents.shift();
+        }
+
         backend.pendingRecents.push(emojiChar);
 
         if (isShift) {
