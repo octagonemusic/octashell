@@ -8,6 +8,7 @@ import "utilities/clipboard"
 import "utilities/emoji"
 import "utilities/launcher"
 import "utilities/wallpaper"
+import "popups"
 import qs.services
 
 /** Main shell entry point; manages surface orchestration. */
@@ -58,5 +59,9 @@ ShellRoot {
     // Wallpaper Selector
     WallpaperSelector {
         id: wallpaperSelectorWindow
+    }
+
+    VolumePopup {
+        id: volumePopupWindow
     }
 }
