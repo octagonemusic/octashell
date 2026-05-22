@@ -14,6 +14,7 @@ Item {
     property var allItems: []
     property var filteredItems: []
     property var recentItems: []
+    property var pendingRecents: []
     property string selectionBuffer: ""
 
     // UI-Facing State
@@ -55,12 +56,7 @@ Item {
     }
 
     function processSelection(emojiChar, isShift) {
-        backend.recentItems = Logic.updateRecents(emojiChar, backend.allItems, backend.recentItems);
-        saveRecentsToDisk();
-
-        if (backend.currentCategory === "Recents" && backend.searchText.trim() === "") {
-            backend.filteredItems = backend.recentItems;
-        }
+        backend.pendingRecents.push(emojiChar);
 
         if (isShift) {
             selectionBuffer += emojiChar;
@@ -69,6 +65,24 @@ Item {
             copyToClipboard.selectedEmoji = selectionBuffer + emojiChar;
             copyToClipboard.running = true;
             selectionBuffer = "";
+        }
+    }
+
+    function commitRecents() {
+        if (backend.pendingRecents.length === 0)
+            return;
+
+        let updatedList = backend.recentItems;
+        for (let i = 0; i < backend.pendingRecents.length; i++) {
+            updatedList = Logic.updateRecents(backend.pendingRecents[i], backend.allItems, updatedList);
+        }
+
+        backend.recentItems = updatedList;
+        backend.saveRecentsToDisk();
+        backend.pendingRecents = []; // Clear the buffer
+
+        if (backend.currentCategory === "Recents" && backend.searchText.trim() === "") {
+            backend.filteredItems = backend.recentItems;
         }
     }
 

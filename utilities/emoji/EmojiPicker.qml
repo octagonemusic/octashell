@@ -53,7 +53,7 @@ PanelWindow {
 
     function closeMenu() {
         emojiWindow.visible = false;
-        ctrl.selectionBuffer = "";
+        ctrl.commitRecents();
     }
 
     // Proxy function to safely handle EmojiDelegate's onClicked signals
@@ -163,7 +163,7 @@ PanelWindow {
                         case Qt.Key_Enter:
                         case Qt.Key_Return:
                             if (gridView.currentItem) {
-                                ctrl.processSelection(gridView.currentItem.emojiChar, event.modifiers & Qt.ShiftModifier);
+                                ctrl.processSelection(gridView.currentItem.emojiChar, (event.modifiers & Qt.ShiftModifier) !== 0);
                             }
                             event.accepted = true;
                             break;
