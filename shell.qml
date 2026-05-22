@@ -64,4 +64,8 @@ ShellRoot {
     VolumePopup {
         id: volumePopupWindow
     }
+
+    BrightnessPopup {
+        id: brightnessPopupWindow
+    }
 }
