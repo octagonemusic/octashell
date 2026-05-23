@@ -94,9 +94,6 @@ Variants {
 
                 color: Theme.surface_container_high
 
-                border.width: 1
-                border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.55)
-
                 layer.enabled: true
                 layer.effect: MultiEffect {
                     shadowEnabled: true
@@ -191,9 +188,10 @@ Variants {
                                 color: volumeOsdPopup.isMuted ? Theme.outline : Theme.primary
 
                                 Behavior on width {
-                                    NumberAnimation {
-                                        duration: 150
-                                        easing.type: Easing.OutQuad
+                                    SpringAnimation {
+                                        spring: 11.0
+                                        damping: 0.3
+                                        mass: 1.0
                                     }
                                 }
                             }
@@ -220,9 +218,9 @@ Variants {
                                         anchors.right: parent.right
                                         anchors.verticalCenter: parent.verticalCenter
                                         anchors.rightMargin: 1.5
-                                        width: 4
-                                        height: 4
-                                        radius: 2
+                                        width: 5
+                                        height: 5
+                                        radius: 2.5
                                         color: volumeOsdPopup.isMuted ? Theme.outline : Theme.primary
                                     }
                                 }

@@ -3,12 +3,11 @@
 import Quickshell
 import QtQuick
 import "bar"
-import "notifications"
-import "utilities/clipboard"
-import "utilities/emoji"
-import "utilities/launcher"
-import "utilities/wallpaper"
-import "popups"
+import qs.utilities.clipboard
+import qs.utilities.emoji
+import qs.utilities.launcher
+import qs.utilities.wallpaper
+import qs.popups
 import qs.services
 
 /** Main shell entry point; manages surface orchestration. */

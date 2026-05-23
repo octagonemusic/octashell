@@ -4,6 +4,7 @@ import Quickshell.Hyprland
 import QtQuick
 import QtQuick.Effects
 import QtQuick.Shapes
+import qs.services
 import "../theme"
 
 Variants {
@@ -70,7 +71,7 @@ Variants {
         }
 
         Connections {
-            target: CentralNotifServer
+            target: NotifServer
 
             function onNotification(notification) {
                 let existingIndex = -1;
@@ -232,9 +233,6 @@ Variants {
 
                     // M3 Expressive Shape
                     radius: 28
-
-                    border.width: 1
-                    border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.55)
 
                     color: Theme.surface_container
 

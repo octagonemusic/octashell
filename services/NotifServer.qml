@@ -7,7 +7,7 @@ import Quickshell.Services.Notifications
  * Singleton service providing a centralized interface for D-Bus notification signals.
  */
 NotificationServer {
-    id: centralNotificationServer
+    id: notificationServer
 
     // Capabilities advertised to the system notification daemon
     bodySupported: true
