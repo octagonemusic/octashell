@@ -20,20 +20,33 @@ Variants {
         screen: modelData
 
         ListModel {
-            id: activeNotifications
+            id: notifModel
+        }
+
+        function addOrUpdateNotification(notification) {
+            for (let i = 0; i < notifModel.count; i++) {
+                if (notifModel.get(i).notifId === notification.id) {
+                    notifModel.setProperty(i, "notificationEntry", notification);
+                    return;
+                }
+            }
+            notifModel.insert(0, {
+                notifId: notification.id,
+                notificationEntry: notification
+            });
         }
 
         function disposeNotification(notificationId) {
-            for (let i = 0; i < activeNotifications.count; i++) {
-                if (activeNotifications.get(i).notificationEntry.id === notificationId) {
-                    activeNotifications.remove(i, 1);
-                    break;
+            for (let i = 0; i < notifModel.count; i++) {
+                if (notifModel.get(i).notifId === notificationId) {
+                    notifModel.remove(i, 1);
+                    return;
                 }
             }
         }
 
         visible: true
-        property bool hasNotifications: activeNotifications.count > 0
+        property bool hasNotifications: notifModel.count > 0
 
         Timer {
             id: exitTimer
@@ -43,15 +56,8 @@ Variants {
 
         readonly property bool surfaceMapped: hasNotifications || exitTimer.running
 
-        property real stableHeight: 0
-
-        Binding on stableHeight {
-            when: hasNotifications
-            value: notificationStack.contentHeight + 40
-        }
-
         implicitWidth: surfaceMapped ? 390 : 0
-        implicitHeight: surfaceMapped ? stableHeight : 0
+        implicitHeight: surfaceMapped ? modelData.height : 0
 
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "notification_overlay"
@@ -72,39 +78,21 @@ Variants {
 
         Connections {
             target: NotifServer
-
             function onNotification(notification) {
-                let existingIndex = -1;
-
-                for (let i = 0; i < activeNotifications.count; i++) {
-                    if (activeNotifications.get(i).notificationEntry.id === notification.id) {
-                        existingIndex = i;
-                        break;
-                    }
-                }
-
-                if (existingIndex !== -1) {
-                    activeNotifications.setProperty(existingIndex, "notificationEntry", notification);
-                } else {
-                    activeNotifications.insert(0, {
-                        "notificationEntry": notification
-                    });
-                }
+                notificationPopup.addOrUpdateNotification(notification);
             }
         }
 
-        ListView {
+        Item {
             id: notificationStack
 
             visible: {
                 const isFocused = Hyprland.focusedMonitor && modelData.name === Hyprland.focusedMonitor.name;
-                return isFocused && activeNotifications.count > 0;
+                return isFocused && surfaceMapped;
             }
 
             width: 350
-            height: contentHeight
-            interactive: false
-            spacing: 14
+            height: parent.height
 
             anchors {
                 top: parent.top
@@ -113,432 +101,529 @@ Variants {
                 rightMargin: 20
             }
 
-            model: activeNotifications
-            delegate: notificationDelegate
+            property var cardHeights: []
 
-            add: Transition {
-                ParallelAnimation {
-                    NumberAnimation {
-                        property: "x"
-                        from: 390
-                        to: 0
-                        duration: 350
-                        easing.type: Easing.OutBack
-                        easing.overshoot: 1.05
+            function getCardHeight(id) {
+                for (let i = 0; i < cardHeights.length; i++) {
+                    if (cardHeights[i].notifId === id)
+                        return cardHeights[i].h;
+                }
+                return 0;
+            }
+
+            function setCardHeight(id, h) {
+                for (let i = 0; i < cardHeights.length; i++) {
+                    if (cardHeights[i].notifId === id) {
+                        if (cardHeights[i].h === h)
+                            return;  // no-op
+                        cardHeights[i].h = h;
+                        cardHeightsChanged();
+                        return;
                     }
-                    NumberAnimation {
-                        property: "opacity"
-                        from: 0
-                        to: 1
-                        duration: 250
-                    }
+                }
+                cardHeights.push({
+                    notifId: id,
+                    h: h
+                });
+                cardHeightsChanged();
+            }
+
+            function removeCardHeight(id) {
+                const idx = cardHeights.findIndex(e => e.notifId === id);
+                if (idx !== -1) {
+                    cardHeights.splice(idx, 1);
+                    cardHeightsChanged();
                 }
             }
 
-            remove: Transition {
-                ParallelAnimation {
-                    NumberAnimation {
-                        property: "x"
-                        to: 390
-                        duration: 350
-                        easing.type: Easing.InBack
-                        easing.overshoot: 1.1
-                    }
-                    NumberAnimation {
-                        property: "opacity"
-                        to: 0
-                        duration: 250
-                    }
+            function yForIndex(idx) {
+                const spacing = 14;
+                let y = 0;
+                for (let i = 0; i < idx; i++) {
+                    const id = notifModel.get(i).notifId;
+                    y += getCardHeight(id) + spacing;
                 }
+                return y;
             }
 
-            displaced: Transition {
-                ParallelAnimation {
-                    NumberAnimation {
-                        properties: "y"
-                        duration: 350
-                        easing.type: Easing.OutBack
-                        easing.overshoot: 1.05
-                    }
-                    NumberAnimation {
-                        properties: "x"
-                        to: 0
-                        duration: 350
-                        easing.type: Easing.OutBack
-                        easing.overshoot: 1.05
-                    }
-                    NumberAnimation {
-                        property: "opacity"
-                        to: 1
-                        duration: 250
-                    }
-                }
-            }
-        }
+            Repeater {
+                model: notifModel
 
-        Component {
-            id: notificationDelegate
+                delegate: Item {
+                    id: cardDelegate
 
-            Item {
-                id: delegateContainer
+                    required property int index
+                    required property int notifId
+                    required property var notificationEntry
 
-                width: 350
-                height: notificationCard.height + 20
+                    width: 350
+                    height: notificationCard.height + 20
 
-                required property var notificationEntry
+                    x: 0
+                    y: notificationStack.yForIndex(index)
 
-                readonly property string applicationName: notificationEntry.appName || "Notification"
-                readonly property var applicationIcon: notificationEntry.image || notificationEntry.appIcon || ""
-
-                property real lifeSpanProgress: 1.0
-
-                onNotificationEntryChanged: {
-                    lifeSpanProgress = 1.0;
-                    expiryTimer.restart();
-                }
-
-                Connections {
-                    target: notificationEntry
-                    function onClosed(reason) {
-                        expiryTimer.stop();
-                        notificationPopup.disposeNotification(notificationEntry.id);
-                    }
-                }
-
-                NumberAnimation {
-                    id: expiryTimer
-                    target: delegateContainer
-                    property: "lifeSpanProgress"
-                    from: 1.0
-                    to: 0.0
-                    duration: 7000
-                    running: true
-                    paused: root.hoveredNotificationId === notificationEntry.id
-
-                    onFinished: {
-                        if (lifeSpanProgress <= 0.01) {
-                            if (notificationPopup.visible && notificationEntry && typeof notificationEntry.expire === "function") {
-                                notificationEntry.expire();
-                            }
-                        }
-                    }
-                }
-
-                Rectangle {
-                    id: notificationCard
-
-                    width: parent.width
-                    height: layoutContent.implicitHeight + 36
-                    y: 4
-
-                    // M3 Expressive Shape
-                    radius: 28
-
-                    color: Theme.surface_container
-
-                    scale: interactionArea.pressed ? 0.975 : 1.0
-                    layer.enabled: true
-
-                    layer.effect: MultiEffect {
-                        shadowEnabled: true
-                        shadowColor: "#1A000000"
-                        blurMax: 48
-                        shadowBlur: interactionArea.containsMouse ? 1.0 : 0.6
-                        shadowVerticalOffset: interactionArea.containsMouse ? 8 : 4
-
-                        Behavior on shadowBlur {
-                            NumberAnimation {
-                                duration: 250
-                                easing.type: Easing.OutBack
-                            }
-                        }
-                        Behavior on shadowVerticalOffset {
-                            NumberAnimation {
-                                duration: 250
-                                easing.type: Easing.OutBack
-                            }
-                        }
-                    }
-
-                    Behavior on scale {
+                    Behavior on y {
                         NumberAnimation {
-                            duration: 220
+                            duration: 320
+                            easing.type: Easing.OutCubic
+                        }
+                    }
+
+                    property bool slidingOut: false
+
+                    function slideOut() {
+                        if (slidingOut)
+                            return;
+                        slidingOut = true;
+                        expiryAnim.stop();
+                        slideOutAnim.start();
+                    }
+
+                    Component.onCompleted: {
+                        notificationStack.setCardHeight(notifId, notificationCard.height);
+                        x = 390;
+                        opacity = 0;
+                        slideIn.start();
+                    }
+
+                    Component.onDestruction: {
+                        notificationStack.removeCardHeight(notifId);
+
+                        if (root.hoveredNotificationId === notifId) {
+                            root.hoveredNotificationId = -1;
+                        }
+                    }
+
+                    onHeightChanged: {
+                        notificationStack.setCardHeight(notifId, notificationCard.height);
+                    }
+
+                    ParallelAnimation {
+                        id: slideIn
+                        NumberAnimation {
+                            target: cardDelegate
+                            property: "x"
+                            to: 0
+                            duration: 350
                             easing.type: Easing.OutBack
+                            easing.overshoot: 1.05
+                        }
+                        NumberAnimation {
+                            target: cardDelegate
+                            property: "opacity"
+                            to: 1
+                            duration: 250
+                        }
+                    }
+
+                    ParallelAnimation {
+                        id: slideOutAnim
+                        NumberAnimation {
+                            target: cardDelegate
+                            property: "x"
+                            to: 390
+                            duration: 320
+                            easing.type: Easing.InBack
+                            easing.overshoot: 1.1
+                        }
+                        NumberAnimation {
+                            target: cardDelegate
+                            property: "opacity"
+                            to: 0
+                            duration: 220
+                        }
+                        onFinished: notificationPopup.disposeNotification(notifId)
+                    }
+
+                    readonly property string applicationName: notificationEntry.appName || "Notification"
+                    readonly property var applicationIcon: notificationEntry.image || notificationEntry.appIcon || ""
+
+                    property real lifeSpanProgress: 1.0
+
+                    onNotificationEntryChanged: {
+                        if (slidingOut)
+                            return;
+                        lifeSpanProgress = 1.0;
+                        expiryAnim.restart();
+                        updateExpiryPaused();
+                    }
+
+                    Connections {
+                        target: notificationEntry
+                        function onClosed(reason) {
+                            cardDelegate.slideOut();
+                        }
+                    }
+
+                    readonly property bool isOnFocusedScreen: Hyprland.focusedMonitor !== null && modelData.name === Hyprland.focusedMonitor.name
+
+                    property bool expireCalled: false
+
+                    function updateExpiryPaused() {
+                        if (!expiryAnim.running)
+                            return;
+                        const shouldPause = !isOnFocusedScreen || root.hoveredNotificationId === notifId;
+                        if (shouldPause && !expiryAnim.paused)
+                            expiryAnim.pause();
+                        if (!shouldPause && expiryAnim.paused)
+                            expiryAnim.resume();
+                    }
+
+                    Connections {
+                        target: root
+                        function onHoveredNotificationIdChanged() {
+                            cardDelegate.updateExpiryPaused();
+                        }
+                    }
+
+                    Connections {
+                        target: Hyprland
+                        function onFocusedMonitorChanged() {
+                            cardDelegate.updateExpiryPaused();
+                        }
+                    }
+
+                    NumberAnimation {
+                        id: expiryAnim
+                        target: cardDelegate
+                        property: "lifeSpanProgress"
+                        from: 1.0
+                        to: 0.0
+                        duration: 7000
+                        running: true
+
+                        onRunningChanged: {
+                            if (running) {
+                                cardDelegate.updateExpiryPaused();
+                            }
+                        }
+
+                        onFinished: {
+                            if (cardDelegate.lifeSpanProgress > 0.01)
+                                return;
+                            if (!notificationEntry)
+                                return;
+                            if (cardDelegate.slidingOut)
+                                return;
+                            if (cardDelegate.expireCalled)
+                                return;
+                            cardDelegate.expireCalled = true;
+                            if (typeof notificationEntry.expire === "function")
+                                notificationEntry.expire();
                         }
                     }
 
                     Rectangle {
-                        anchors.fill: parent
-                        radius: parent.radius
+                        id: notificationCard
 
-                        color: {
-                            if (interactionArea.pressed)
-                                return Qt.rgba(Theme.on_surface.r, Theme.on_surface.g, Theme.on_surface.b, 0.10);
-                            if (interactionArea.containsMouse)
-                                return Qt.rgba(Theme.on_surface.r, Theme.on_surface.g, Theme.on_surface.b, 0.08);
-                            return "transparent";
-                        }
+                        width: parent.width
+                        height: layoutContent.implicitHeight + 36
+                        y: 4
 
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: 150
+                        radius: 28
+                        color: Theme.surface_container
+
+                        scale: interactionArea.pressed ? 0.975 : 1.0
+                        layer.enabled: true
+
+                        layer.effect: MultiEffect {
+                            shadowEnabled: true
+                            shadowColor: "#1A000000"
+                            blurMax: 48
+                            shadowBlur: interactionArea.containsMouse ? 1.0 : 0.6
+                            shadowVerticalOffset: interactionArea.containsMouse ? 8 : 4
+
+                            Behavior on shadowBlur {
+                                NumberAnimation {
+                                    duration: 250
+                                    easing.type: Easing.OutCubic
+                                }
+                            }
+                            Behavior on shadowVerticalOffset {
+                                NumberAnimation {
+                                    duration: 250
+                                    easing.type: Easing.OutCubic
+                                }
                             }
                         }
-                    }
 
-                    MouseArea {
-                        id: interactionArea
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-
-                        onEntered: root.hoveredNotificationId = notificationEntry.id
-                        onExited: {
-                            if (root.hoveredNotificationId === notificationEntry.id) {
-                                root.hoveredNotificationId = -1;
+                        Behavior on scale {
+                            NumberAnimation {
+                                duration: 220
+                                easing.type: Easing.OutBack
                             }
                         }
 
-                        onClicked: {
-                            let invoked = false;
-                            if (notificationEntry.actions) {
-                                for (let i = 0; i < notificationEntry.actions.length; i++) {
-                                    if (notificationEntry.actions[i].identifier === "default") {
-                                        notificationEntry.actions[i].invoke();
-                                        invoked = true;
-                                        break;
-                                    }
-                                }
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: parent.radius
+                            color: {
+                                if (interactionArea.pressed)
+                                    return Qt.rgba(Theme.on_surface.r, Theme.on_surface.g, Theme.on_surface.b, 0.10);
+                                if (interactionArea.containsMouse)
+                                    return Qt.rgba(Theme.on_surface.r, Theme.on_surface.g, Theme.on_surface.b, 0.08);
+                                return "transparent";
                             }
-                            if (!invoked) {
-                                notificationEntry.dismiss();
+                            Behavior on color {
+                                ColorAnimation {
+                                    duration: 150
+                                }
                             }
                         }
-                    }
 
-                    Column {
-                        id: layoutContent
+                        MouseArea {
+                            id: interactionArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
 
-                        width: parent.width - 40
-                        anchors.centerIn: parent
-
-                        spacing: 4
-
-                        Item {
-                            width: parent.width
-                            height: 32
-
-                            Item {
-                                id: headerIconWrapper
-
-                                width: 24
-                                height: 24
-
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-
-                                Rectangle {
-                                    anchors.fill: parent
-                                    radius: width / 2
-                                    color: Theme.primary_container
-                                    visible: !delegateContainer.applicationIcon
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: "!"
-                                        color: Theme.on_primary_container
-                                        font {
-                                            family: "Google Sans Medium"
-                                            pixelSize: 13
-                                            bold: true
-                                        }
-                                    }
+                            onEntered: {
+                                if (!cardDelegate.slidingOut) {
+                                    root.hoveredNotificationId = notifId;
                                 }
-
-                                Rectangle {
-                                    id: headerMask
-                                    anchors.fill: parent
-                                    radius: width / 2
-                                    color: "black"
-                                    visible: false
-                                    layer.enabled: true
-                                    layer.smooth: true
-                                }
-
-                                Image {
-                                    anchors.fill: parent
-                                    source: delegateContainer.applicationIcon
-                                    fillMode: Image.PreserveAspectCrop
-                                    visible: !!delegateContainer.applicationIcon
-                                    layer.enabled: true
-                                    layer.smooth: true
-
-                                    layer.effect: MultiEffect {
-                                        maskEnabled: true
-                                        maskSource: headerMask
-                                        maskThresholdMin: 0.5
-                                        maskSpreadAtMin: 1.0
-                                    }
+                            }
+                            onExited: {
+                                if (root.hoveredNotificationId === notifId) {
+                                    root.hoveredNotificationId = -1;
                                 }
                             }
 
-                            Text {
-                                text: delegateContainer.applicationName
-                                color: Theme.primary
+                            onClicked: {
+                                if (cardDelegate.slidingOut)
+                                    return;
 
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: headerIconWrapper.right
-                                anchors.leftMargin: 12
-
-                                font {
-                                    family: "Google Sans Medium"
-                                    pixelSize: 14
-                                }
-                            }
-
-                            // =========================================
-                            // Close Action
-                            // =========================================
-                            Rectangle {
-                                id: closeAction
-
-                                width: 32
-                                height: 32
-                                radius: 16
-                                color: "transparent"
-
-                                anchors {
-                                    right: parent.right
-                                    verticalCenter: parent.verticalCenter
-                                }
-
-                                Behavior on color {
-                                    ColorAnimation {
-                                        duration: 150
-                                    }
-                                }
-
-                                Shape {
-                                    id: countdownRing
-                                    anchors.fill: parent
-                                    antialiasing: true
-                                    preferredRendererType: Shape.CurveRenderer
-
-                                    ShapePath {
-                                        fillColor: "transparent"
-                                        strokeColor: Qt.rgba(Theme.critical.r, Theme.critical.g, Theme.critical.b, 0.2)
-                                        strokeWidth: 4
-                                        capStyle: ShapePath.RoundCap
-
-                                        PathAngleArc {
-                                            centerX: closeAction.width / 2
-                                            centerY: closeAction.height / 2
-                                            radiusX: (closeAction.width / 2) - 2.5
-                                            radiusY: (closeAction.height / 2) - 2.5
-                                            startAngle: 0
-                                            sweepAngle: 360
-                                        }
-                                    }
-
-                                    ShapePath {
-                                        fillColor: "transparent"
-                                        strokeColor: Theme.critical
-                                        strokeWidth: 4
-                                        capStyle: ShapePath.RoundCap
-
-                                        PathAngleArc {
-                                            centerX: closeAction.width / 2
-                                            centerY: closeAction.height / 2
-                                            radiusX: (closeAction.width / 2) - 2.5
-                                            radiusY: (closeAction.height / 2) - 2.5
-                                            startAngle: -90
-                                            sweepAngle: delegateContainer.lifeSpanProgress * 360
-                                        }
-                                    }
-                                }
-
-                                Item {
-                                    anchors.centerIn: parent
-                                    width: 12
-                                    height: 12
-                                    rotation: 45
-
-                                    Rectangle {
-                                        width: 2
-                                        height: parent.height
-                                        anchors.centerIn: parent
-                                        radius: 1
-                                        color: closeMouseArea.containsMouse ? Theme.on_surface : Theme.on_surface_variant
-                                        antialiasing: true
-                                        Behavior on color {
-                                            ColorAnimation {
-                                                duration: 150
+                                let invoked = false;
+                                if (notificationEntry && notificationEntry.actions) {
+                                    for (let i = 0; i < notificationEntry.actions.length; i++) {
+                                        if (notificationEntry.actions[i].identifier === "default") {
+                                            if (typeof notificationEntry.actions[i].invoke === "function") {
+                                                notificationEntry.actions[i].invoke();
                                             }
-                                        }
-                                    }
-
-                                    Rectangle {
-                                        width: parent.width
-                                        height: 2
-                                        anchors.centerIn: parent
-                                        radius: 1
-                                        color: closeMouseArea.containsMouse ? Theme.on_surface : Theme.on_surface_variant
-                                        antialiasing: true
-                                        Behavior on color {
-                                            ColorAnimation {
-                                                duration: 150
-                                            }
+                                            invoked = true;
+                                            break;
                                         }
                                     }
                                 }
 
-                                MouseArea {
-                                    id: closeMouseArea
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-
-                                    onEntered: closeAction.color = Qt.rgba(Theme.on_surface.r, Theme.on_surface.g, Theme.on_surface.b, 0.08)
-                                    onExited: closeAction.color = "transparent"
-                                    onClicked: event => {
-                                        event.accepted = true;
-                                        notificationEntry.dismiss();
-                                    }
+                                if (!invoked && notificationEntry && typeof notificationEntry.dismiss === "function") {
+                                    notificationEntry.dismiss();
                                 }
                             }
                         }
 
                         Column {
-                            width: parent.width
+                            id: layoutContent
+                            width: parent.width - 40
+                            anchors.centerIn: parent
                             spacing: 4
 
-                            Text {
-                                text: notificationEntry.summary
-                                color: Theme.on_surface
+                            Item {
+                                width: parent.width
+                                height: 32
 
-                                font {
-                                    family: "Google Sans Medium"
-                                    pixelSize: 16
-                                    bold: true
+                                Item {
+                                    id: headerIconWrapper
+                                    width: 24
+                                    height: 24
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.left: parent.left
+
+                                    Rectangle {
+                                        anchors.fill: parent
+                                        radius: width / 2
+                                        color: Theme.primary_container
+                                        visible: !cardDelegate.applicationIcon
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: "!"
+                                            color: Theme.on_primary_container
+                                            font {
+                                                family: "Google Sans Medium"
+                                                pixelSize: 13
+                                                bold: true
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        id: headerMask
+                                        anchors.fill: parent
+                                        radius: width / 2
+                                        color: "black"
+                                        visible: false
+                                        layer.enabled: true
+                                        layer.smooth: true
+                                    }
+
+                                    Image {
+                                        anchors.fill: parent
+                                        source: cardDelegate.applicationIcon
+                                        fillMode: Image.PreserveAspectCrop
+                                        visible: !!cardDelegate.applicationIcon
+                                        layer.enabled: true
+                                        layer.smooth: true
+                                        layer.effect: MultiEffect {
+                                            maskEnabled: true
+                                            maskSource: headerMask
+                                            maskThresholdMin: 0.5
+                                            maskSpreadAtMin: 1.0
+                                        }
+                                    }
                                 }
 
-                                width: parent.width
-                                elide: Text.ElideRight
+                                Text {
+                                    text: cardDelegate.applicationName
+                                    color: Theme.primary
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.left: headerIconWrapper.right
+                                    anchors.leftMargin: 12
+                                    font {
+                                        family: "Google Sans Medium"
+                                        pixelSize: 14
+                                    }
+                                }
+
+                                Rectangle {
+                                    id: closeAction
+                                    width: 32
+                                    height: 32
+                                    radius: 16
+                                    color: "transparent"
+                                    anchors {
+                                        right: parent.right
+                                        verticalCenter: parent.verticalCenter
+                                    }
+                                    Behavior on color {
+                                        ColorAnimation {
+                                            duration: 150
+                                        }
+                                    }
+
+                                    Shape {
+                                        anchors.fill: parent
+                                        antialiasing: true
+                                        preferredRendererType: Shape.CurveRenderer
+
+                                        ShapePath {
+                                            fillColor: "transparent"
+                                            strokeColor: Qt.rgba(Theme.critical.r, Theme.critical.g, Theme.critical.b, 0.2)
+                                            strokeWidth: 4
+                                            capStyle: ShapePath.RoundCap
+                                            PathAngleArc {
+                                                centerX: closeAction.width / 2
+                                                centerY: closeAction.height / 2
+                                                radiusX: (closeAction.width / 2) - 2.5
+                                                radiusY: (closeAction.height / 2) - 2.5
+                                                startAngle: 0
+                                                sweepAngle: 360
+                                            }
+                                        }
+
+                                        ShapePath {
+                                            fillColor: "transparent"
+                                            strokeColor: Theme.critical
+                                            strokeWidth: 4
+                                            capStyle: ShapePath.RoundCap
+                                            PathAngleArc {
+                                                centerX: closeAction.width / 2
+                                                centerY: closeAction.height / 2
+                                                radiusX: (closeAction.width / 2) - 2.5
+                                                radiusY: (closeAction.height / 2) - 2.5
+                                                startAngle: -90
+                                                sweepAngle: cardDelegate.lifeSpanProgress * 360
+                                            }
+                                        }
+                                    }
+
+                                    Item {
+                                        anchors.centerIn: parent
+                                        width: 12
+                                        height: 12
+                                        rotation: 45
+
+                                        Rectangle {
+                                            width: 2
+                                            height: parent.height
+                                            anchors.centerIn: parent
+                                            radius: 1
+                                            color: closeMouseArea.containsMouse ? Theme.on_surface : Theme.on_surface_variant
+                                            antialiasing: true
+                                            Behavior on color {
+                                                ColorAnimation {
+                                                    duration: 150
+                                                }
+                                            }
+                                        }
+                                        Rectangle {
+                                            width: parent.width
+                                            height: 2
+                                            anchors.centerIn: parent
+                                            radius: 1
+                                            color: closeMouseArea.containsMouse ? Theme.on_surface : Theme.on_surface_variant
+                                            antialiasing: true
+                                            Behavior on color {
+                                                ColorAnimation {
+                                                    duration: 150
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        id: closeMouseArea
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+
+                                        onEntered: {
+                                            if (!cardDelegate.slidingOut) {
+                                                closeAction.color = Qt.rgba(Theme.on_surface.r, Theme.on_surface.g, Theme.on_surface.b, 0.08);
+                                            }
+                                        }
+                                        onExited: closeAction.color = "transparent"
+
+                                        onClicked: event => {
+                                            event.accepted = true;
+                                            if (cardDelegate.slidingOut)
+                                                return;
+
+                                            if (notificationEntry && typeof notificationEntry.dismiss === "function") {
+                                                notificationEntry.dismiss();
+                                            }
+                                        }
+                                    }
+                                }
                             }
 
-                            Text {
-                                text: notificationEntry.body
-                                color: Theme.on_surface_variant
+                            Column {
+                                width: parent.width
+                                spacing: 4
 
-                                font {
-                                    family: "Google Sans"
-                                    pixelSize: 14
+                                Text {
+                                    text: notificationEntry.summary
+                                    color: Theme.on_surface
+                                    font {
+                                        family: "Google Sans Medium"
+                                        pixelSize: 16
+                                        bold: true
+                                    }
+                                    width: parent.width
+                                    elide: Text.ElideRight
                                 }
 
-                                width: parent.width
-                                wrapMode: Text.WordWrap
-                                maximumLineCount: 3
-                                elide: Text.ElideRight
+                                Text {
+                                    text: notificationEntry.body
+                                    color: Theme.on_surface_variant
+                                    font {
+                                        family: "Google Sans"
+                                        pixelSize: 14
+                                    }
+                                    width: parent.width
+                                    wrapMode: Text.WordWrap
+                                    maximumLineCount: 3
+                                    elide: Text.ElideRight
+                                }
                             }
                         }
                     }
