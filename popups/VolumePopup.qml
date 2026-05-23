@@ -92,7 +92,7 @@ Variants {
 
                 radius: height / 2
 
-                color: Theme.surface_container_high
+                color: Theme.surface_container
 
                 layer.enabled: true
                 layer.effect: MultiEffect {

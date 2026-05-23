@@ -323,15 +323,18 @@ Variants {
                         radius: 28
                         color: Theme.surface_container
 
+                        border.color: Theme.outline_variant !== undefined ? Theme.outline_variant : Qt.rgba(Theme.on_surface.r, Theme.on_surface.g, Theme.on_surface.b, 0.15)
+                        border.width: 1
+
                         scale: interactionArea.pressed ? 0.975 : 1.0
                         layer.enabled: true
 
                         layer.effect: MultiEffect {
                             shadowEnabled: true
-                            shadowColor: "#1A000000"
-                            blurMax: 48
-                            shadowBlur: interactionArea.containsMouse ? 1.0 : 0.6
-                            shadowVerticalOffset: interactionArea.containsMouse ? 8 : 4
+                            shadowColor: "#40000000"
+                            blurMax: 64
+                            shadowBlur: interactionArea.containsMouse ? 1.0 : 0.85
+                            shadowVerticalOffset: interactionArea.containsMouse ? 12 : 8
 
                             Behavior on shadowBlur {
                                 NumberAnimation {
@@ -344,13 +347,6 @@ Variants {
                                     duration: 250
                                     easing.type: Easing.OutCubic
                                 }
-                            }
-                        }
-
-                        Behavior on scale {
-                            NumberAnimation {
-                                duration: 220
-                                easing.type: Easing.OutBack
                             }
                         }
 
