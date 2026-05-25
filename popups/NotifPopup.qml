@@ -59,6 +59,11 @@ Variants {
         implicitWidth: surfaceMapped ? 390 : 0
         implicitHeight: surfaceMapped ? modelData.height : 0
 
+        // Tells Wayland to strictly limit clicks to this invisible Item
+        mask: Region {
+            item: clickHitbox
+        }
+
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "notification_overlay"
         WlrLayershell.exclusionMode: ExclusionMode.Ignore
@@ -83,6 +88,17 @@ Variants {
             }
         }
 
+        // The invisible boundary for mouse clicks
+        Item {
+            id: clickHitbox
+            width: notificationStack.width
+            height: notificationStack.activeStackHeight
+            anchors {
+                top: notificationStack.top
+                right: notificationStack.right
+            }
+        }
+
         Item {
             id: notificationStack
 
@@ -102,6 +118,12 @@ Variants {
             }
 
             property var cardHeights: []
+
+            // Track the total height dynamically for the hitbox
+            property real activeStackHeight: 0
+            onCardHeightsChanged: {
+                activeStackHeight = yForIndex(notifModel.count);
+            }
 
             function getCardHeight(id) {
                 for (let i = 0; i < cardHeights.length; i++) {
