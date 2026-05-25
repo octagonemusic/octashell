@@ -59,7 +59,6 @@ Variants {
         implicitWidth: surfaceMapped ? 390 : 0
         implicitHeight: surfaceMapped ? modelData.height : 0
 
-        // Tells Wayland to strictly limit clicks to this invisible Item
         mask: Region {
             item: clickHitbox
         }
@@ -88,7 +87,6 @@ Variants {
             }
         }
 
-        // The invisible boundary for mouse clicks
         Item {
             id: clickHitbox
             width: notificationStack.width
@@ -119,7 +117,6 @@ Variants {
 
             property var cardHeights: []
 
-            // Track the total height dynamically for the hitbox
             property real activeStackHeight: 0
             onCardHeightsChanged: {
                 activeStackHeight = yForIndex(notifModel.count);
