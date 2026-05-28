@@ -1,36 +1,85 @@
 import QtQuick
 import qs.services
 import qs.theme
+import qs.bar.widgets.calendar
 
-/**
- * A reactive clock component that displays the system time in a styled container.
- */
-Rectangle {
+Item {
     id: root
 
-    // --- Dimensions ---
-    implicitWidth: timeLabel.contentWidth + 20
-    implicitHeight: timeLabel.contentHeight + 15
+    implicitWidth: visualPill.implicitWidth
+    implicitHeight: visualPill.implicitHeight
 
-    // --- Styling ---
-    color: Theme.surface_container
-    radius: height / 2
-
-    /**
-     * Renders the current time string provided by the global Time service.
-     */
-    Text {
-        id: timeLabel
-
+    Rectangle {
+        id: visualPill
         anchors.centerIn: parent
 
-        // Direct binding to the Time service telemetry
-        text: Time.time
-        color: Theme.on_surface_variant
+        implicitWidth: timeLabel.implicitWidth + 32
+        implicitHeight: timeLabel.implicitHeight + 16
+        radius: height / 2
 
-        font {
-            family: "Google Sans Medium"
-            pointSize: 14
+        // Use standard UI opacity overlays instead of jumping to primary_container
+        color: {
+            if (calendarWidget.visible)
+                // 12% overlay for an active/toggled state
+                return Qt.tint(Theme.surface_container, Qt.rgba(Theme.on_surface.r, Theme.on_surface.g, Theme.on_surface.b, 0.12));
+            if (pillMouse.containsMouse)
+                // 8% overlay for a subtle hover state
+                return Qt.tint(Theme.surface_container, Qt.rgba(Theme.on_surface.r, Theme.on_surface.g, Theme.on_surface.b, 0.08));
+
+            return Theme.surface_container; // Base state
         }
+
+        // Tamed: Only scales down slightly when physically clicked
+        scale: pillMouse.pressed ? 0.95 : 1.0
+
+        // Snappy, non-bouncy transitions
+        Behavior on color {
+            ColorAnimation {
+                duration: 150
+                easing.type: Easing.OutCubic
+            }
+        }
+        Behavior on scale {
+            NumberAnimation {
+                duration: 150
+                easing.type: Easing.OutCubic
+            }
+        }
+
+        MouseArea {
+            id: pillMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: calendarWidget.visible = !calendarWidget.visible
+        }
+
+        Text {
+            id: timeLabel
+            anchors.centerIn: parent
+            text: Time.time
+
+            // Keep the text color consistent. Changing text color is often
+            // the biggest culprit of a "loud" interaction.
+            color: Theme.on_surface
+
+            font {
+                family: "Google Sans"
+                pointSize: 14
+                weight: Font.Medium
+            }
+
+            Behavior on color {
+                ColorAnimation {
+                    duration: 150
+                    easing.type: Easing.OutCubic
+                }
+            }
+        }
+    }
+
+    CalendarWidget {
+        id: calendarWidget
+        visible: false
     }
 }
