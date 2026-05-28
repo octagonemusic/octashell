@@ -15,6 +15,8 @@ Item {
 
     property bool isMonthYearView: false
 
+    property bool isWindowVisible: true
+
     property int activeCellIndex: {
         if (displayMonth === selectedMonth && displayYear === selectedYear) {
             let firstDay = new Date(displayYear, displayMonth, 1).getDay();
@@ -84,7 +86,7 @@ Item {
     // Timers & Init
     Timer {
         interval: 1000
-        running: true
+        running: root.isWindowVisible
         repeat: true
         onTriggered: root.liveTime = new Date()
     }
@@ -330,6 +332,8 @@ Item {
             selectedMonth: root.selectedMonth
             selectedYear: root.selectedYear
             height: parent.height
+
+            isWindowVisible: root.isWindowVisible
         }
 
         Item {

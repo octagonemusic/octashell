@@ -9,6 +9,8 @@ Rectangle {
     property int selectedMonth
     property int selectedYear
 
+    property bool isWindowVisible: true
+
     width: 230
     radius: 28
     color: Theme.surface_container_highest
@@ -34,6 +36,7 @@ Rectangle {
 
                 SequentialAnimation on x {
                     loops: Animation.Infinite
+                    paused: !root.isWindowVisible // Stops when hidden
                     NumberAnimation {
                         to: -30
                         duration: 8000
@@ -57,6 +60,7 @@ Rectangle {
                 }
                 SequentialAnimation on y {
                     loops: Animation.Infinite
+                    paused: !root.isWindowVisible
                     NumberAnimation {
                         to: -110
                         duration: 9000
@@ -83,6 +87,7 @@ Rectangle {
                     to: 360
                     duration: 24000
                     loops: Animation.Infinite
+                    paused: !root.isWindowVisible
                 }
             }
         }
@@ -103,6 +108,7 @@ Rectangle {
 
                 SequentialAnimation on x {
                     loops: Animation.Infinite
+                    paused: !root.isWindowVisible
                     NumberAnimation {
                         to: -30
                         duration: 9000
@@ -126,6 +132,7 @@ Rectangle {
                 }
                 SequentialAnimation on y {
                     loops: Animation.Infinite
+                    paused: !root.isWindowVisible
                     NumberAnimation {
                         to: -40
                         duration: 10000
@@ -152,6 +159,7 @@ Rectangle {
                     to: 0
                     duration: 28000
                     loops: Animation.Infinite
+                    paused: !root.isWindowVisible
                 }
             }
         }
@@ -172,7 +180,6 @@ Rectangle {
                 font.family: "Google Sans"
                 font.pointSize: 88
                 font.weight: Font.Black
-                antialiasing: true
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -181,7 +188,6 @@ Rectangle {
                 font.family: "Google Sans"
                 font.pointSize: 88
                 font.weight: Font.Bold
-                antialiasing: true
             }
         }
 

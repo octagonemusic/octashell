@@ -37,29 +37,12 @@ PanelWindow {
         border.color: Theme.outline_variant
         border.width: 1
 
-        Loader {
-            id: calendarLoader
+        CalendarGrid {
             anchors.fill: parent
 
-            source: "CalendarGrid.qml"
+            isWindowVisible: root.visible
 
-            asynchronous: true
-
-            active: root.visible
-
-            onLoaded: {
-                if (item) {
-                    item.forceActiveFocus();
-                }
-            }
-
-            Connections {
-                target: calendarLoader.item
-                ignoreUnknownSignals: true
-                function onRequestClose() {
-                    root.visible = false;
-                }
-            }
+            onRequestClose: root.visible = false
         }
     }
 }
