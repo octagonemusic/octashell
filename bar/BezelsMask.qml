@@ -2,6 +2,8 @@ pragma ComponentBehavior: Bound
 
 import Quickshell
 import Quickshell.Wayland
+import Quickshell.Hyprland
+import qs.services
 import QtQuick
 import QtQuick.Effects
 import "../theme"
@@ -24,9 +26,11 @@ Variants {
 
         // --- Window Configuration ---
         color: "transparent"
-        visible: true
 
-        WlrLayershell.layer: WlrLayer.Top
+        readonly property HyprlandMonitor monitor: Hyprland.monitorFor(screen)
+        visible: !FullscreenState.isFullscreen(monitor)
+
+        WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "quickshell-bezels"
         WlrLayershell.exclusiveZone: -1 // Passthrough; do not reserve space
 

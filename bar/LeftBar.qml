@@ -1,7 +1,9 @@
 import Quickshell
 import Quickshell.Wayland
+import Quickshell.Hyprland
 import QtQuick
 import qs.theme
+import qs.services
 
 Variants {
     id: root
@@ -15,7 +17,9 @@ Variants {
         screen: modelData
 
         // --- Layer Shell Configuration ---
-        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.layer: WlrLayer.Overlay
+        readonly property HyprlandMonitor monitor: Hyprland.monitorFor(screen)
+        visible: !FullscreenState.isFullscreen(monitor)
 
         // --- Geometry & Positioning ---
         anchors {
