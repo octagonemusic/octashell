@@ -351,9 +351,9 @@ Variants {
                         layer.effect: MultiEffect {
                             shadowEnabled: true
                             shadowColor: "#40000000"
-                            blurMax: 64
+                            blurMax: 32
                             shadowBlur: interactionArea.containsMouse ? 1.0 : 0.85
-                            shadowVerticalOffset: interactionArea.containsMouse ? 12 : 8
+                            shadowVerticalOffset: interactionArea.containsMouse ? 6 : 4
 
                             Behavior on shadowBlur {
                                 NumberAnimation {
