@@ -96,6 +96,7 @@ Item {
     onVisibleChanged: {
         if (visible) {
             let d = new Date();
+            root.liveTime = d;
             selectedDay = d.getDate();
             selectedMonth = d.getMonth();
             selectedYear = d.getFullYear();
@@ -356,7 +357,7 @@ Item {
 
             Item {
                 id: viewsContainer
-                width: parent.width
+                width: parent.width + 20
                 height: 380
                 anchors.top: headerItem.bottom
                 anchors.topMargin: 24
