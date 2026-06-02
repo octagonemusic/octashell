@@ -93,10 +93,11 @@ Item {
 
     Component.onCompleted: generateCalendar()
 
-    onVisibleChanged: {
-        if (visible) {
+    onIsWindowVisibleChanged: {
+        if (isWindowVisible) {
             let d = new Date();
             root.liveTime = d;
+
             selectedDay = d.getDate();
             selectedMonth = d.getMonth();
             selectedYear = d.getFullYear();
