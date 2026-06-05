@@ -263,6 +263,7 @@ Variants {
                         if (slidingOut)
                             return;
                         lifeSpanProgress = 1.0;
+                        expiryAnim.duration = 7000;
                         expiryAnim.restart();
                         updateExpiryPaused();
                     }
@@ -282,10 +283,13 @@ Variants {
                         if (!expiryAnim.running)
                             return;
                         const shouldPause = !isOnFocusedScreen || root.hoveredNotificationId === notifId;
-                        if (shouldPause && !expiryAnim.paused)
+                        if (shouldPause && !expiryAnim.paused) {
                             expiryAnim.pause();
-                        if (!shouldPause && expiryAnim.paused)
+                        }
+                        if (!shouldPause && expiryAnim.paused) {
+                            expiryAnim.duration = 7000 * cardDelegate.lifeSpanProgress;
                             expiryAnim.resume();
+                        }
                     }
 
                     Connections {
