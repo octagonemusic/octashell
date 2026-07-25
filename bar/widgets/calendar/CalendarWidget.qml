@@ -31,7 +31,7 @@ PanelWindow {
 
     Rectangle {
         anchors.fill: parent
-        color: Theme.surface_container_low
+        color: Theme.surface
         radius: 32
 
         border.color: Theme.outline_variant

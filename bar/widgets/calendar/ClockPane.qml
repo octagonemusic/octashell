@@ -13,7 +13,7 @@ Rectangle {
 
     width: 230
     radius: 28
-    color: Theme.surface_container_highest
+    color: Theme.surface_container
     clip: true
 
     Item {
