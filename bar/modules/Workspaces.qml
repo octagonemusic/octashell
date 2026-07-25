@@ -10,7 +10,7 @@ Rectangle {
 
     property string targetMonitor: ""
 
-    // Animation guards.
+    // Animation state.
     property bool windowVisible: true
     property bool isLoaded: false
     readonly property bool allowAnimations: isLoaded && windowVisible
@@ -19,12 +19,114 @@ Rectangle {
     readonly property int dotHeight: 28
     readonly property int spacingAmount: 6
 
+    // Icon cache.
+    property var iconCache: ({})
+
+    function resolveIconSource(appClass, appTitle) {
+        var lowerClass = (appClass || "").toLowerCase();
+        var cacheKey = lowerClass !== "" ? lowerClass : ("title:" + appTitle);
+
+        if (root.iconCache.hasOwnProperty(cacheKey))
+            return root.iconCache[cacheKey];
+
+        var exactTitle = (appTitle || "").trim().toLowerCase();
+        var desktopEntry = null;
+
+        if (lowerClass !== "") {
+            // Exact lookup.
+            desktopEntry = DesktopEntries.byId(appClass) || DesktopEntries.byId(lowerClass) || DesktopEntries.byId(lowerClass.replace(/_/g, "-"));
+
+            var apps = DesktopEntries.applications.values;
+
+            // WMClass lookup.
+            if (!desktopEntry) {
+                for (var i = 0; i < apps.length; i++) {
+                    if ((apps[i].startupWmClass || "").toLowerCase() === lowerClass) {
+                        desktopEntry = apps[i];
+                        break;
+                    }
+                }
+            }
+
+            // Steam AppID lookup.
+            if (!desktopEntry) {
+                var uniqueIdMatch = lowerClass.match(/\d{4,}/);
+                if (uniqueIdMatch) {
+                    var numericId = uniqueIdMatch[0];
+                    for (var k = 0; k < apps.length; k++) {
+                        if (apps[k].id.includes(numericId)) {
+                            desktopEntry = apps[k];
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Title lookup.
+            if (!desktopEntry && exactTitle !== "") {
+                for (var j = 0; j < apps.length; j++) {
+                    var appName = (apps[j].name || "").toLowerCase();
+                    if (appName !== "" && (exactTitle === appName || exactTitle.startsWith(appName))) {
+                        desktopEntry = apps[j];
+                        break;
+                    }
+                }
+            }
+
+            if (!desktopEntry)
+                desktopEntry = DesktopEntries.heuristicLookup(appClass);
+        }
+
+        var guesses = [];
+
+        if (desktopEntry && desktopEntry.icon)
+            guesses.push(desktopEntry.icon);
+
+        if (appClass !== "") {
+            guesses.push(appClass);
+            guesses.push(lowerClass);
+            guesses.push(lowerClass.replace(/_/g, "-"));
+
+            // Steam icon fallback.
+            if (lowerClass.includes("app"))
+                guesses.push(lowerClass.replace("app", "icon"));
+
+            // Filter generic tokens.
+            var ignoreList = ["app", "desktop", "com", "org", "net", "io", "www", "bin"];
+            var tokens = lowerClass.split(/[^a-z0-9]/).filter(t => t.length > 2 && !ignoreList.includes(t));
+
+            for (var t = tokens.length - 1; t >= 0; t--)
+                guesses.push(tokens[t]);
+        }
+
+        var resolved = Quickshell.iconPath("application-x-executable", true);
+        for (var g = 0; g < guesses.length; g++) {
+            var guess = guesses[g];
+            if (!guess)
+                continue;
+
+            if (guess.startsWith("/")) {
+                resolved = "file://" + guess;
+                break;
+            }
+
+            var path = Quickshell.iconPath(guess, true);
+            if (path && path !== "") {
+                resolved = path;
+                break;
+            }
+        }
+
+        root.iconCache[cacheKey] = resolved;
+        return resolved;
+    }
+
     readonly property var sortedWorkspaces: {
         var ws = Hyprland.workspaces.values;
         return ws.filter(w => w.id >= 1 && w.monitor?.name === root.targetMonitor).sort((a, b) => a.id - b.id);
     }
 
-    // The workspace that should be highlighted, computed reactively.
+    // Focused workspace.
     readonly property var focusedWorkspace: {
         for (let i = 0; i < sortedWorkspaces.length; i++) {
             if (sortedWorkspaces[i].focused)
@@ -37,7 +139,7 @@ Rectangle {
         return null;
     }
 
-    // The delegate item corresponding to focusedWorkspace, recomputed reactively.
+    // Active workspace item.
     readonly property Item currentActiveDot: {
         if (!root.focusedWorkspace)
             return null;
@@ -72,7 +174,7 @@ Rectangle {
         }
     }
 
-    // Global active workspace highlight.
+    // Active highlight.
     Rectangle {
         id: slidingHighlight
 
@@ -96,7 +198,12 @@ Rectangle {
         x: mainLayout.x + targetX
         width: currentActiveDot ? currentActiveDot.targetWidth : 0
         height: root.dotHeight
-        radius: height / 2
+
+        // Active pill shape.
+        topLeftRadius: height * 0.15
+        topRightRadius: height * 0.9
+        bottomRightRadius: height * 0.15
+        bottomLeftRadius: height * 0.9
 
         color: currentActiveDot?.isFocused ? (Theme.primary ?? "#6750A4") : (Theme.primary_container ?? "#EADDFF")
 
@@ -230,102 +337,13 @@ Rectangle {
                             readonly property string appClass: modelData.lastIpcObject?.class ?? ""
                             readonly property string appTitle: modelData.title ?? ""
 
-                            // Resolves the desktop entry based on window class/title.
-                            readonly property var desktopEntry: {
-                                var lowerClass = (appClass || "").toLowerCase();
-                                var exactTitle = (appTitle || "").trim().toLowerCase();
-
-                                if (lowerClass === "")
-                                    return null;
-
-                                // 1. Exact Class Match
-                                var exact = DesktopEntries.byId(appClass) || DesktopEntries.byId(lowerClass) || DesktopEntries.byId(lowerClass.replace(/_/g, "-"));
-                                if (exact)
-                                    return exact;
-
-                                var apps = DesktopEntries.applications.values;
-
-                                // 2. StartupWMClass Match
-                                for (var i = 0; i < apps.length; i++) {
-                                    if ((apps[i].startupWmClass || "").toLowerCase() === lowerClass)
-                                        return apps[i];
-                                }
-
-                                // 3. The Zero-Hardcode ID Extractor (The Ultimate Steam Game Fix)
-                                // Extracts the numbers from "steam_app_412830" to find the desktop file instantly
-                                var uniqueIdMatch = lowerClass.match(/\d{4,}/);
-                                if (uniqueIdMatch) {
-                                    var numericId = uniqueIdMatch[0];
-                                    for (var k = 0; k < apps.length; k++) {
-                                        if (apps[k].id.includes(numericId))
-                                            return apps[k];
-                                    }
-                                }
-
-                                // 4. Flexible Title Match
-                                // Safely matches "Steins;Gate Launcher" to "Steins;Gate" without breaking IntelliJ
-                                if (exactTitle !== "") {
-                                    for (var j = 0; j < apps.length; j++) {
-                                        var appName = (apps[j].name || "").toLowerCase();
-                                        if (appName !== "" && (exactTitle === appName || exactTitle.startsWith(appName))) {
-                                            return apps[j];
-                                        }
-                                    }
-                                }
-
-                                return DesktopEntries.heuristicLookup(appClass);
-                            }
-
-                            readonly property string iconSource: {
-                                var guesses = [];
-
-                                if (desktopEntry && desktopEntry.icon)
-                                    guesses.push(desktopEntry.icon);
-
-                                if (appClass !== "") {
-                                    var lowerAppClass = appClass.toLowerCase();
-                                    guesses.push(appClass);
-                                    guesses.push(lowerAppClass);
-                                    guesses.push(lowerAppClass.replace(/_/g, "-"));
-
-                                    // 5. The Zero-Hardcode Valve Fix
-                                    // Turns "steam_app_412830" into "steam_icon_412830" purely by swapping words
-                                    if (lowerAppClass.includes("app")) {
-                                        guesses.push(lowerAppClass.replace("app", "icon"));
-                                    }
-
-                                    // 6. The "Landmine" Filter (Fixes Geometry Dash gear icon)
-                                    // Ignores generic system words so it can successfully fall back to "steam", "telegram", etc.
-                                    var ignoreList = ["app", "desktop", "com", "org", "net", "io", "www", "bin"];
-                                    var tokens = lowerAppClass.split(/[^a-z0-9]/).filter(t => t.length > 2 && !ignoreList.includes(t));
-
-                                    for (var i = tokens.length - 1; i >= 0; i--) {
-                                        guesses.push(tokens[i]);
-                                    }
-                                }
-
-                                // Check the system for the guesses
-                                for (var j = 0; j < guesses.length; j++) {
-                                    var guess = guesses[j];
-                                    if (!guess)
-                                        continue;
-
-                                    if (guess.startsWith("/"))
-                                        return "file://" + guess;
-
-                                    var path = Quickshell.iconPath(guess, true);
-                                    if (path && path !== "")
-                                        return path;
-                                }
-
-                                return Quickshell.iconPath("application-x-executable", true);
-                            }
+                            readonly property string iconSource: root.resolveIconSource(appClass, appTitle)
                             readonly property string fallbackLetter: {
                                 var name = appClass !== "" ? appClass : appTitle;
                                 return name.length > 0 ? name.charAt(0).toUpperCase() : "?";
                             }
 
-                            // Anti-aliasing mask for icon rounding.
+                            // Rounded icon mask.
                             Rectangle {
                                 id: roundMask
                                 anchors.centerIn: parent
@@ -335,6 +353,24 @@ Rectangle {
                                 color: "black"
                                 visible: false
                                 layer.enabled: true
+                            }
+
+                            // Icon separator.
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: 19
+                                height: 19
+                                radius: 9.5
+                                color: "transparent"
+                                border.width: 1.5
+                                border.color: (workspaceDot.isFocused || workspaceDot.isActive) ? (Theme.primary ?? "#6750A4") : (Theme.surface_container_high ?? "#ECE6F0")
+
+                                Behavior on border.color {
+                                    enabled: root.allowAnimations
+                                    ColorAnimation {
+                                        duration: root.animDurationShort
+                                    }
+                                }
                             }
 
                             Rectangle {
@@ -397,7 +433,6 @@ Rectangle {
                         }
                     }
 
-                    // Overflow indicator.
                     Rectangle {
                         visible: workspaceDot.windowCount > 3
                         width: 18
@@ -420,7 +455,6 @@ Rectangle {
                     }
                 }
 
-                // Empty state workspace dot.
                 Rectangle {
                     anchors.centerIn: parent
                     visible: !workspaceDot.hasWindows
