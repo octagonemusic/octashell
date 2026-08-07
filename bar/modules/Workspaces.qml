@@ -334,7 +334,7 @@ Rectangle {
                             width: visible ? 18 : 0
                             height: 18
 
-                            readonly property string appClass: modelData.lastIpcObject?.class ?? ""
+                            readonly property string appClass: modelData.class ?? modelData.initialClass ?? modelData.lastIpcObject?.class ?? ""
                             readonly property string appTitle: modelData.title ?? ""
 
                             readonly property string iconSource: root.resolveIconSource(appClass, appTitle)
