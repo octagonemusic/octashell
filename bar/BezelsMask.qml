@@ -70,7 +70,7 @@ Variants {
                 Rectangle {
                     id: bezelBackground
                     anchors.fill: parent
-                    color: Theme.surface
+                    color: Theme.surface_container_lowest
                     layer.enabled: true
 
                     // Subtracts the cutoutShape from the solid surface

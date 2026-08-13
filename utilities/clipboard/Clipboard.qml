@@ -101,7 +101,7 @@ PanelWindow {
                 Rectangle {
                     id: mainUi
                     anchors.fill: parent
-                    color: Theme.surface_container
+                    color: Theme.surface
                     radius: 28
                     focus: true
 

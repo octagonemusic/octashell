@@ -344,7 +344,7 @@ Variants {
                         y: 4
 
                         radius: 28
-                        color: Theme.surface_container
+                        color: Theme.surface
 
                         border.color: Theme.outline_variant !== undefined ? Theme.outline_variant : Qt.rgba(Theme.on_surface.r, Theme.on_surface.g, Theme.on_surface.b, 0.15)
                         border.width: 1

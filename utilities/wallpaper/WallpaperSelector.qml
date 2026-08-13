@@ -172,7 +172,7 @@ PanelWindow {
 
                     anchors.fill: parent
 
-                    color: Theme.surface_container
+                    color: Theme.surface_container_low
                     radius: 32
 
                     layer.enabled: true

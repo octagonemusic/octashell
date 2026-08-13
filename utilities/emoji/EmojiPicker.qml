@@ -121,7 +121,7 @@ PanelWindow {
                 Rectangle {
                     id: mainUi
                     anchors.fill: parent
-                    color: Theme.surface_container
+                    color: Theme.surface
                     radius: 28
                     clip: true
                     focus: true
@@ -478,7 +478,7 @@ PanelWindow {
                                 }
                                 GradientStop {
                                     position: 1.0
-                                    color: Theme.surface_container
+                                    color: Theme.surface_container_lowest
                                 }
                             }
                         }
