@@ -1,5 +1,6 @@
 import QtQuick
 import qs.theme
+import qs.bar.widgets
 
 Item {
     id: root
@@ -15,25 +16,54 @@ Item {
     signal nextClicked
 
     Rectangle {
+        id: monthYearPill
         anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
         width: monthYearText.width + 24
         height: 36
         radius: 18
-        color: monthYearMouse.containsMouse ? Theme.surface_variant : "transparent"
-        scale: monthYearMouse.pressed ? 0.95 : 1.0
+        color: "transparent"
 
-        Behavior on scale {
-            NumberAnimation {
-                duration: 150
-                easing.type: Easing.OutBack
-                easing.overshoot: 1.05
+        transform: Scale {
+            origin.x: monthYearPill.width / 2
+            origin.y: monthYearPill.height / 2
+            xScale: monthYearMouse.pressed ? 1.05 : 1.0
+            yScale: monthYearMouse.pressed ? 0.9 : 1.0
+
+            Behavior on xScale {
+                NumberAnimation {
+                    duration: monthYearMouse.pressed ? 100 : 150
+                    easing.type: monthYearMouse.pressed ? Easing.OutQuad : Easing.OutBack
+                    easing.overshoot: 1.05
+                }
+            }
+            Behavior on yScale {
+                NumberAnimation {
+                    duration: monthYearMouse.pressed ? 100 : 150
+                    easing.type: monthYearMouse.pressed ? Easing.OutQuad : Easing.OutBack
+                    easing.overshoot: 1.05
+                }
             }
         }
-        Behavior on color {
-            ColorAnimation {
-                duration: 150
+
+        Rectangle {
+            anchors.fill: parent
+            radius: parent.radius
+            color: Theme.primary
+            opacity: monthYearMouse.pressed ? 0.10 : (monthYearMouse.containsMouse ? 0.08 : 0.0)
+
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: 150
+                    easing.type: Easing.OutQuad
+                }
             }
+        }
+
+        Ripple {
+            id: monthYearRipple
+            cornerRadius: monthYearPill.radius
+            rippleColor: Theme.primary
         }
 
         Text {
@@ -51,6 +81,7 @@ Item {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
+            onPressed: mouse => monthYearRipple.trigger(mouse.x, mouse.y)
             onClicked: root.toggleView()
         }
     }
@@ -69,25 +100,54 @@ Item {
 
         // Today Button
         Rectangle {
+            id: todayButton
             width: 72
             height: 36
             radius: 18
-            color: todayMouse.containsMouse ? Theme.surface_variant : "transparent"
+            color: "transparent"
             border.color: Theme.outline_variant
             border.width: 1
-            scale: todayMouse.pressed ? 0.95 : (todayMouse.containsMouse ? 1.05 : 1.0)
 
-            Behavior on scale {
-                NumberAnimation {
-                    duration: 150
-                    easing.type: Easing.OutBack
-                    easing.overshoot: 1.05
+            transform: Scale {
+                origin.x: todayButton.width / 2
+                origin.y: todayButton.height / 2
+                xScale: todayMouse.pressed ? 1.06 : (todayMouse.containsMouse ? 1.05 : 1.0)
+                yScale: todayMouse.pressed ? 0.88 : (todayMouse.containsMouse ? 1.05 : 1.0)
+
+                Behavior on xScale {
+                    NumberAnimation {
+                        duration: todayMouse.pressed ? 100 : 150
+                        easing.type: todayMouse.pressed ? Easing.OutQuad : Easing.OutBack
+                        easing.overshoot: 1.05
+                    }
+                }
+                Behavior on yScale {
+                    NumberAnimation {
+                        duration: todayMouse.pressed ? 100 : 150
+                        easing.type: todayMouse.pressed ? Easing.OutQuad : Easing.OutBack
+                        easing.overshoot: 1.05
+                    }
                 }
             }
-            Behavior on color {
-                ColorAnimation {
-                    duration: 100
+
+            Rectangle {
+                anchors.fill: parent
+                radius: parent.radius
+                color: Theme.primary
+                opacity: todayMouse.pressed ? 0.10 : (todayMouse.containsMouse ? 0.08 : 0.0)
+
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: 150
+                        easing.type: Easing.OutQuad
+                    }
                 }
+            }
+
+            Ripple {
+                id: todayRipple
+                cornerRadius: todayButton.radius
+                rippleColor: Theme.primary
             }
 
             Text {
@@ -103,29 +163,59 @@ Item {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
+                onPressed: mouse => todayRipple.trigger(mouse.x, mouse.y)
                 onClicked: root.jumpToToday()
             }
         }
 
         // Prev Button
         Rectangle {
+            id: prevButton
             width: 36
             height: 36
             radius: 18
-            color: prevMouse.containsMouse ? Theme.surface_variant : "transparent"
-            scale: prevMouse.pressed ? 0.9 : (prevMouse.containsMouse ? 1.05 : 1.0)
+            color: "transparent"
 
-            Behavior on scale {
-                NumberAnimation {
-                    duration: 150
-                    easing.type: Easing.OutBack
-                    easing.overshoot: 1.05
+            transform: Scale {
+                origin.x: prevButton.width / 2
+                origin.y: prevButton.height / 2
+                xScale: prevMouse.pressed ? 1.08 : (prevMouse.containsMouse ? 1.05 : 1.0)
+                yScale: prevMouse.pressed ? 0.84 : (prevMouse.containsMouse ? 1.05 : 1.0)
+
+                Behavior on xScale {
+                    NumberAnimation {
+                        duration: prevMouse.pressed ? 100 : 150
+                        easing.type: prevMouse.pressed ? Easing.OutQuad : Easing.OutBack
+                        easing.overshoot: 1.05
+                    }
+                }
+                Behavior on yScale {
+                    NumberAnimation {
+                        duration: prevMouse.pressed ? 100 : 150
+                        easing.type: prevMouse.pressed ? Easing.OutQuad : Easing.OutBack
+                        easing.overshoot: 1.05
+                    }
                 }
             }
-            Behavior on color {
-                ColorAnimation {
-                    duration: 100
+
+            Rectangle {
+                anchors.fill: parent
+                radius: parent.radius
+                color: Theme.on_surface
+                opacity: prevMouse.pressed ? 0.10 : (prevMouse.containsMouse ? 0.08 : 0.0)
+
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: 150
+                        easing.type: Easing.OutQuad
+                    }
                 }
+            }
+
+            Ripple {
+                id: prevRipple
+                cornerRadius: prevButton.radius
+                rippleColor: Theme.primary
             }
 
             Text {
@@ -139,29 +229,59 @@ Item {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
+                onPressed: mouse => prevRipple.trigger(mouse.x, mouse.y)
                 onClicked: root.previousClicked()
             }
         }
 
         // Next Button
         Rectangle {
+            id: nextButton
             width: 36
             height: 36
             radius: 18
-            color: nextMouse.containsMouse ? Theme.surface_variant : "transparent"
-            scale: nextMouse.pressed ? 0.9 : (nextMouse.containsMouse ? 1.05 : 1.0)
+            color: "transparent"
 
-            Behavior on scale {
-                NumberAnimation {
-                    duration: 150
-                    easing.type: Easing.OutBack
-                    easing.overshoot: 1.05
+            transform: Scale {
+                origin.x: nextButton.width / 2
+                origin.y: nextButton.height / 2
+                xScale: nextMouse.pressed ? 1.08 : (nextMouse.containsMouse ? 1.05 : 1.0)
+                yScale: nextMouse.pressed ? 0.84 : (nextMouse.containsMouse ? 1.05 : 1.0)
+
+                Behavior on xScale {
+                    NumberAnimation {
+                        duration: nextMouse.pressed ? 100 : 150
+                        easing.type: nextMouse.pressed ? Easing.OutQuad : Easing.OutBack
+                        easing.overshoot: 1.05
+                    }
+                }
+                Behavior on yScale {
+                    NumberAnimation {
+                        duration: nextMouse.pressed ? 100 : 150
+                        easing.type: nextMouse.pressed ? Easing.OutQuad : Easing.OutBack
+                        easing.overshoot: 1.05
+                    }
                 }
             }
-            Behavior on color {
-                ColorAnimation {
-                    duration: 100
+
+            Rectangle {
+                anchors.fill: parent
+                radius: parent.radius
+                color: Theme.on_surface
+                opacity: nextMouse.pressed ? 0.10 : (nextMouse.containsMouse ? 0.08 : 0.0)
+
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: 150
+                        easing.type: Easing.OutQuad
+                    }
                 }
+            }
+
+            Ripple {
+                id: nextRipple
+                cornerRadius: nextButton.radius
+                rippleColor: Theme.primary
             }
 
             Text {
@@ -175,6 +295,7 @@ Item {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
+                onPressed: mouse => nextRipple.trigger(mouse.x, mouse.y)
                 onClicked: root.nextClicked()
             }
         }

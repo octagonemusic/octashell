@@ -100,7 +100,7 @@ Rectangle {
                 width: 140
                 height: 160
                 radius: 75
-                color: Theme.primary
+                color: Theme.secondary
                 opacity: 0.14
                 x: -70
                 y: -80
@@ -158,6 +158,70 @@ Rectangle {
                     from: 360
                     to: 0
                     duration: 28000
+                    loops: Animation.Infinite
+                    paused: !root.isWindowVisible
+                }
+            }
+        }
+
+        // Small highlight shape layered on top for tonal depth
+        Item {
+            anchors.centerIn: parent
+            anchors.horizontalCenterOffset: 55
+            anchors.verticalCenterOffset: -95
+
+            Rectangle {
+                width: 80
+                height: 90
+                radius: 40
+                color: Theme.primary_container
+                opacity: 0.22
+                x: -40
+                y: -45
+                transformOrigin: Item.Center
+
+                SequentialAnimation on x {
+                    loops: Animation.Infinite
+                    paused: !root.isWindowVisible
+                    NumberAnimation {
+                        to: -10
+                        duration: 7000
+                        easing.type: Easing.InOutSine
+                    }
+                    NumberAnimation {
+                        to: -55
+                        duration: 8000
+                        easing.type: Easing.InOutSine
+                    }
+                    NumberAnimation {
+                        to: -40
+                        duration: 7500
+                        easing.type: Easing.InOutSine
+                    }
+                }
+                SequentialAnimation on y {
+                    loops: Animation.Infinite
+                    paused: !root.isWindowVisible
+                    NumberAnimation {
+                        to: -70
+                        duration: 7500
+                        easing.type: Easing.InOutSine
+                    }
+                    NumberAnimation {
+                        to: -30
+                        duration: 8500
+                        easing.type: Easing.InOutSine
+                    }
+                    NumberAnimation {
+                        to: -45
+                        duration: 7000
+                        easing.type: Easing.InOutSine
+                    }
+                }
+                NumberAnimation on rotation {
+                    from: 0
+                    to: 360
+                    duration: 20000
                     loops: Animation.Infinite
                     paused: !root.isWindowVisible
                 }

@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Widgets
 import qs.theme
+import qs.bar.widgets
 
 Rectangle {
     id: root
@@ -17,7 +18,7 @@ Rectangle {
 
     readonly property int animDurationShort: 150
     readonly property int dotHeight: 28
-    readonly property int spacingAmount: 6
+    readonly property int spacingAmount: 8
 
     // Icon cache.
     property var iconCache: ({})
@@ -286,6 +287,30 @@ Rectangle {
                     }
                 }
 
+                transform: Scale {
+                    origin.x: workspaceDot.width / 2
+                    origin.y: workspaceDot.height / 2
+                    xScale: dotTap.pressed ? 1.04 : 1.0
+                    yScale: dotTap.pressed ? 0.84 : 1.0
+
+                    Behavior on xScale {
+                        enabled: root.allowAnimations
+                        NumberAnimation {
+                            duration: dotTap.pressed ? 100 : 150
+                            easing.type: dotTap.pressed ? Easing.OutQuad : Easing.OutBack
+                            easing.overshoot: 1.1
+                        }
+                    }
+                    Behavior on yScale {
+                        enabled: root.allowAnimations
+                        NumberAnimation {
+                            duration: dotTap.pressed ? 100 : 150
+                            easing.type: dotTap.pressed ? Easing.OutQuad : Easing.OutBack
+                            easing.overshoot: 1.1
+                        }
+                    }
+                }
+
                 Rectangle {
                     id: inactivePill
                     anchors.fill: parent
@@ -323,6 +348,12 @@ Rectangle {
                             duration: 150
                             easing.type: Easing.OutQuad
                         }
+                    }
+
+                    Ripple {
+                        id: dotRipple
+                        cornerRadius: stateLayer.radius
+                        rippleColor: stateLayer.color
                     }
                 }
 
@@ -493,6 +524,8 @@ Rectangle {
                 TapHandler {
                     id: dotTap
                     margin: 8
+                    onPressedChanged: if (pressed)
+                        dotRipple.trigger(point.position.x, point.position.y)
                     onTapped: modelData.activate()
                 }
 

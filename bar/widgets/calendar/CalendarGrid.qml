@@ -291,7 +291,6 @@ Item {
                     displayMonth = 0;
                     displayYear++;
                 }
-                syncSelection();
                 generateCalendar();
                 swipeTransform.x = swipeAnim.direction * 382;
             }
@@ -362,7 +361,7 @@ Item {
                 height: 380
                 anchors.top: headerItem.bottom
                 anchors.topMargin: 24
-                clip: true
+                clip: swipeAnim.running
 
                 DaysView {
                     anchors.fill: parent

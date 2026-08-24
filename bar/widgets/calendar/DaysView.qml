@@ -1,5 +1,7 @@
 import QtQuick
+import QtQuick.Effects
 import qs.theme
+import qs.bar.widgets
 
 Item {
     id: root
@@ -45,8 +47,56 @@ Item {
             width: daysGrid.implicitWidth
             height: daysGrid.implicitHeight
 
+            // Soft glow echoing the ClockPane's blob motif, tied to the selection
+            Rectangle {
+                width: 62
+                height: 62
+                radius: 31
+                color: Theme.primary
+                opacity: root.activeCellIndex !== -1 ? 0.16 : 0
+                x: (root.lastValidIndex % 7) * 54 - 8
+                y: Math.floor(root.lastValidIndex / 7) * 54 - 8
+                transformOrigin: Item.Center
+
+                Behavior on x {
+                    NumberAnimation {
+                        duration: 250
+                        easing.type: Easing.OutBack
+                        easing.overshoot: 1.1
+                    }
+                }
+                Behavior on y {
+                    NumberAnimation {
+                        duration: 250
+                        easing.type: Easing.OutBack
+                        easing.overshoot: 1.1
+                    }
+                }
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: 200
+                    }
+                }
+
+                SequentialAnimation on scale {
+                    loops: Animation.Infinite
+                    running: root.activeCellIndex !== -1
+                    NumberAnimation {
+                        to: 1.12
+                        duration: 1800
+                        easing.type: Easing.InOutSine
+                    }
+                    NumberAnimation {
+                        to: 1.0
+                        duration: 1800
+                        easing.type: Easing.InOutSine
+                    }
+                }
+            }
+
             // Sliding Selection Circle
             Rectangle {
+                id: selectionCircle
                 width: 46
                 height: 46
                 radius: 23
@@ -54,6 +104,14 @@ Item {
                 opacity: root.activeCellIndex !== -1 ? 1 : 0
                 x: (root.lastValidIndex % 7) * 54
                 y: Math.floor(root.lastValidIndex / 7) * 54
+
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowBlur: 0.6
+                    shadowColor: "#40000000"
+                    shadowVerticalOffset: 3
+                }
 
                 Behavior on x {
                     NumberAnimation {
@@ -90,22 +148,52 @@ Item {
                         radius: 23
                         readonly property bool isSelectedDay: (model.isCurrentMonth && parseInt(model.dayText) === root.selectedDay && root.displayMonth === root.selectedMonth && root.displayYear === root.selectedYear)
 
-                        color: (dayMouse.containsMouse && model.isCurrentMonth && !isSelectedDay) ? Theme.surface_variant : "transparent"
+                        color: "transparent"
                         border.color: model.isToday && !isSelectedDay ? Theme.primary : "transparent"
                         border.width: model.isToday && !isSelectedDay ? 2 : 0
-                        scale: dayMouse.pressed && model.isCurrentMonth ? 0.90 : (dayMouse.containsMouse && model.isCurrentMonth ? 1.1 : 1.0)
 
-                        Behavior on scale {
-                            NumberAnimation {
-                                duration: 150
-                                easing.type: Easing.OutBack
-                                easing.overshoot: 1.1
+                        transform: Scale {
+                            origin.x: dayCell.width / 2
+                            origin.y: dayCell.height / 2
+                            xScale: dayMouse.pressed && model.isCurrentMonth ? 1.08 : (dayMouse.containsMouse && model.isCurrentMonth ? 1.1 : 1.0)
+                            yScale: dayMouse.pressed && model.isCurrentMonth ? 0.86 : (dayMouse.containsMouse && model.isCurrentMonth ? 1.1 : 1.0)
+
+                            Behavior on xScale {
+                                NumberAnimation {
+                                    duration: dayMouse.pressed ? 100 : 150
+                                    easing.type: dayMouse.pressed ? Easing.OutQuad : Easing.OutBack
+                                    easing.overshoot: 1.1
+                                }
+                            }
+                            Behavior on yScale {
+                                NumberAnimation {
+                                    duration: dayMouse.pressed ? 100 : 150
+                                    easing.type: dayMouse.pressed ? Easing.OutQuad : Easing.OutBack
+                                    easing.overshoot: 1.1
+                                }
                             }
                         }
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: 100
+
+                        // State layer: fractional-opacity overlay per M3 spec (8% hover, 10% pressed)
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: parent.radius
+                            visible: model.isCurrentMonth && !dayCell.isSelectedDay
+                            color: Theme.on_surface
+                            opacity: dayMouse.pressed ? 0.10 : (dayMouse.containsMouse ? 0.08 : 0.0)
+
+                            Behavior on opacity {
+                                NumberAnimation {
+                                    duration: 150
+                                    easing.type: Easing.OutQuad
+                                }
                             }
+                        }
+
+                        Ripple {
+                            id: dayRipple
+                            cornerRadius: dayCell.radius
+                            rippleColor: dayCell.isSelectedDay ? Theme.on_primary : Theme.primary
                         }
 
                         Text {
@@ -127,6 +215,10 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: model.isCurrentMonth
                             cursorShape: model.isCurrentMonth ? Qt.PointingHandCursor : Qt.ArrowCursor
+                            onPressed: mouse => {
+                                if (model.isCurrentMonth)
+                                    dayRipple.trigger(mouse.x, mouse.y);
+                            }
                             onClicked: {
                                 if (model.isCurrentMonth) {
                                     root.daySelected(parseInt(model.dayText));

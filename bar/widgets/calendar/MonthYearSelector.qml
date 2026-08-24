@@ -1,5 +1,7 @@
 import QtQuick
+import QtQuick.Effects
 import qs.theme
+import qs.bar.widgets
 
 Item {
     id: root
@@ -20,18 +22,52 @@ Item {
             spacing: 24
 
             Rectangle {
+                id: yearPrevButton
                 width: 40
                 height: 40
                 radius: 20
-                color: yearPrevMouse.containsMouse ? Theme.surface_variant : "transparent"
-                scale: yearPrevMouse.pressed ? 0.9 : (yearPrevMouse.containsMouse ? 1.1 : 1.0)
+                color: "transparent"
 
-                Behavior on scale {
-                    NumberAnimation {
-                        duration: 150
-                        easing.type: Easing.OutBack
-                        easing.overshoot: 1.1
+                transform: Scale {
+                    origin.x: yearPrevButton.width / 2
+                    origin.y: yearPrevButton.height / 2
+                    xScale: yearPrevMouse.pressed ? 1.1 : (yearPrevMouse.containsMouse ? 1.1 : 1.0)
+                    yScale: yearPrevMouse.pressed ? 0.8 : (yearPrevMouse.containsMouse ? 1.1 : 1.0)
+
+                    Behavior on xScale {
+                        NumberAnimation {
+                            duration: yearPrevMouse.pressed ? 100 : 150
+                            easing.type: yearPrevMouse.pressed ? Easing.OutQuad : Easing.OutBack
+                            easing.overshoot: 1.1
+                        }
                     }
+                    Behavior on yScale {
+                        NumberAnimation {
+                            duration: yearPrevMouse.pressed ? 100 : 150
+                            easing.type: yearPrevMouse.pressed ? Easing.OutQuad : Easing.OutBack
+                            easing.overshoot: 1.1
+                        }
+                    }
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: parent.radius
+                    color: Theme.on_surface
+                    opacity: yearPrevMouse.pressed ? 0.10 : (yearPrevMouse.containsMouse ? 0.08 : 0.0)
+
+                    Behavior on opacity {
+                        NumberAnimation {
+                            duration: 150
+                            easing.type: Easing.OutQuad
+                        }
+                    }
+                }
+
+                Ripple {
+                    id: yearPrevRipple
+                    cornerRadius: yearPrevButton.radius
+                    rippleColor: Theme.primary
                 }
 
                 Text {
@@ -45,6 +81,7 @@ Item {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
+                    onPressed: mouse => yearPrevRipple.trigger(mouse.x, mouse.y)
                     onClicked: root.previousYear()
                 }
             }
@@ -59,18 +96,52 @@ Item {
             }
 
             Rectangle {
+                id: yearNextButton
                 width: 40
                 height: 40
                 radius: 20
-                color: yearNextMouse.containsMouse ? Theme.surface_variant : "transparent"
-                scale: yearNextMouse.pressed ? 0.9 : (yearNextMouse.containsMouse ? 1.1 : 1.0)
+                color: "transparent"
 
-                Behavior on scale {
-                    NumberAnimation {
-                        duration: 150
-                        easing.type: Easing.OutBack
-                        easing.overshoot: 1.1
+                transform: Scale {
+                    origin.x: yearNextButton.width / 2
+                    origin.y: yearNextButton.height / 2
+                    xScale: yearNextMouse.pressed ? 1.1 : (yearNextMouse.containsMouse ? 1.1 : 1.0)
+                    yScale: yearNextMouse.pressed ? 0.8 : (yearNextMouse.containsMouse ? 1.1 : 1.0)
+
+                    Behavior on xScale {
+                        NumberAnimation {
+                            duration: yearNextMouse.pressed ? 100 : 150
+                            easing.type: yearNextMouse.pressed ? Easing.OutQuad : Easing.OutBack
+                            easing.overshoot: 1.1
+                        }
                     }
+                    Behavior on yScale {
+                        NumberAnimation {
+                            duration: yearNextMouse.pressed ? 100 : 150
+                            easing.type: yearNextMouse.pressed ? Easing.OutQuad : Easing.OutBack
+                            easing.overshoot: 1.1
+                        }
+                    }
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: parent.radius
+                    color: Theme.on_surface
+                    opacity: yearNextMouse.pressed ? 0.10 : (yearNextMouse.containsMouse ? 0.08 : 0.0)
+
+                    Behavior on opacity {
+                        NumberAnimation {
+                            duration: 150
+                            easing.type: Easing.OutQuad
+                        }
+                    }
+                }
+
+                Ripple {
+                    id: yearNextRipple
+                    cornerRadius: yearNextButton.radius
+                    rippleColor: Theme.primary
                 }
 
                 Text {
@@ -84,6 +155,7 @@ Item {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
+                    onPressed: mouse => yearNextRipple.trigger(mouse.x, mouse.y)
                     onClicked: root.nextYear()
                 }
             }
@@ -102,6 +174,14 @@ Item {
                 color: Theme.primary
                 x: (root.displayMonth % 4) * 88
                 y: Math.floor(root.displayMonth / 4) * 60
+
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowBlur: 0.6
+                    shadowColor: "#40000000"
+                    shadowVerticalOffset: 3
+                }
 
                 Behavior on x {
                     NumberAnimation {
@@ -127,24 +207,54 @@ Item {
                 Repeater {
                     model: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
                     Rectangle {
+                        id: monthCell
                         width: 76
                         height: 48
                         radius: 24
                         readonly property bool isSelectedMonth: index === root.displayMonth
-                        color: monthMouse.containsMouse && !isSelectedMonth ? Theme.surface_variant : "transparent"
-                        scale: monthMouse.pressed ? 0.9 : (monthMouse.containsMouse && !isSelectedMonth ? 1.05 : 1.0)
+                        color: "transparent"
 
-                        Behavior on scale {
-                            NumberAnimation {
-                                duration: 150
-                                easing.type: Easing.OutBack
-                                easing.overshoot: 1.05
+                        transform: Scale {
+                            origin.x: monthCell.width / 2
+                            origin.y: monthCell.height / 2
+                            xScale: monthMouse.pressed ? 1.06 : (monthMouse.containsMouse && !monthCell.isSelectedMonth ? 1.05 : 1.0)
+                            yScale: monthMouse.pressed ? 0.82 : (monthMouse.containsMouse && !monthCell.isSelectedMonth ? 1.05 : 1.0)
+
+                            Behavior on xScale {
+                                NumberAnimation {
+                                    duration: monthMouse.pressed ? 100 : 150
+                                    easing.type: monthMouse.pressed ? Easing.OutQuad : Easing.OutBack
+                                    easing.overshoot: 1.05
+                                }
+                            }
+                            Behavior on yScale {
+                                NumberAnimation {
+                                    duration: monthMouse.pressed ? 100 : 150
+                                    easing.type: monthMouse.pressed ? Easing.OutQuad : Easing.OutBack
+                                    easing.overshoot: 1.05
+                                }
                             }
                         }
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: 100
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: parent.radius
+                            visible: !monthCell.isSelectedMonth
+                            color: Theme.on_surface
+                            opacity: monthMouse.pressed ? 0.10 : (monthMouse.containsMouse ? 0.08 : 0.0)
+
+                            Behavior on opacity {
+                                NumberAnimation {
+                                    duration: 150
+                                    easing.type: Easing.OutQuad
+                                }
                             }
+                        }
+
+                        Ripple {
+                            id: monthRipple
+                            cornerRadius: monthCell.radius
+                            rippleColor: monthCell.isSelectedMonth ? Theme.on_primary : Theme.primary
                         }
 
                         Text {
@@ -166,6 +276,7 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
+                            onPressed: mouse => monthRipple.trigger(mouse.x, mouse.y)
                             onClicked: root.monthSelected(index)
                         }
                     }
