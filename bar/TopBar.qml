@@ -45,8 +45,9 @@ Variants {
             id: calendarModule
             anchors.centerIn: parent
         }
-        SystemStats {
+        SystemTray {
             id: statusModule
+            windowHandle: mainBar
             anchors {
                 right: parent.right
                 rightMargin: 15
