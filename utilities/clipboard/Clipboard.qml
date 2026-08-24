@@ -22,7 +22,6 @@ PanelWindow {
     anchors.bottom: true
     margins.bottom: 100
 
-    // Hook up Backend Engine
     ClipboardBackend {
         id: ctrl
 
@@ -30,6 +29,7 @@ PanelWindow {
             if (clipboardWindow.visible) {
                 closeMenu();
             } else {
+                ctrl.resetSelectionPending = true; // Force selection back to the first item
                 ctrl.triggerRefresh();
                 ctrl.searchText = "";
                 ctrl.currentTab = 0; // Reset to All Clips on open
@@ -111,6 +111,20 @@ PanelWindow {
                         maskSource: mainUiMask
                     }
 
+                    // Ramps nav speed up the longer j/k or an arrow key is held
+                    property int navRepeatCount: 0
+
+                    function navigate(direction, isAutoRepeat) {
+                        navRepeatCount = isAutoRepeat ? navRepeatCount + 1 : 0;
+                        let step = navRepeatCount > 12 ? 4 : (navRepeatCount > 6 ? 3 : (navRepeatCount > 2 ? 2 : 1));
+                        listView.cancelFlick();
+                        // Scrolling can shift a different row under a stationary cursor,
+                        // whose hover would otherwise steal the selection back
+                        listView.suppressHoverSelect = true;
+                        hoverSuppressTimer.restart();
+                        listView.currentIndex = Math.max(0, Math.min(listView.currentIndex + direction * step, listView.count - 1));
+                    }
+
                     Keys.onPressed: event => {
                         if (event.key === Qt.Key_Escape || event.key === Qt.Key_H) {
                             clipboardWindow.closeMenu();
@@ -123,19 +137,16 @@ PanelWindow {
                                 listView.currentItem.togglePinState();
                             }
                         } else if (event.key === Qt.Key_Down || event.key === Qt.Key_J) {
-                            listView.incrementCurrentIndex();
+                            mainUi.navigate(1, event.isAutoRepeat);
                         } else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) {
-                            listView.decrementCurrentIndex();
+                            mainUi.navigate(-1, event.isAutoRepeat);
                         } else if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return || event.key === Qt.Key_L) {
                             if (listView.currentItem)
                                 listView.currentItem.select();
                         } else if (event.key === Qt.Key_Slash) {
                             searchField.forceActiveFocus();
-                            event.accepted = true;
                         } else if (event.key === Qt.Key_Tab) {
-                            listView.savedIndex = 0; // Reset index when switching tabs
                             ctrl.currentTab = ctrl.currentTab === 0 ? 1 : 0;
-                            event.accepted = true;
                         }
                         event.accepted = true;
                     }
@@ -195,15 +206,12 @@ PanelWindow {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    listView.savedIndex = 0; // Reset index to top on massive clear
-                                    ctrl.clearUnpinnedHistory();
-                                }
+                                onClicked: ctrl.clearUnpinnedHistory()
                             }
                         }
                     }
 
-                    // Search Bar Text Input Field
+                    // Search Bar
                     Item {
                         id: searchArea
                         width: parent.width
@@ -253,17 +261,14 @@ PanelWindow {
                                 }
                             }
 
-                            onTextChanged: {
-                                listView.savedIndex = 0; // Reset index when searching
-                                ctrl.searchText = text;
-                            }
+                            onTextChanged: ctrl.searchText = text
 
                             Keys.onPressed: event => {
                                 if (event.key === Qt.Key_Down) {
-                                    listView.incrementCurrentIndex();
+                                    mainUi.navigate(1, event.isAutoRepeat);
                                     event.accepted = true;
                                 } else if (event.key === Qt.Key_Up) {
-                                    listView.decrementCurrentIndex();
+                                    mainUi.navigate(-1, event.isAutoRepeat);
                                     event.accepted = true;
                                 } else if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return) {
                                     if (listView.currentItem)
@@ -310,10 +315,7 @@ PanelWindow {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        listView.savedIndex = 0;
-                                        ctrl.currentTab = 0;
-                                    }
+                                    onClicked: ctrl.currentTab = 0
                                 }
                             }
 
@@ -339,20 +341,17 @@ PanelWindow {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        listView.savedIndex = 0;
-                                        ctrl.currentTab = 1;
-                                    }
+                                    onClicked: ctrl.currentTab = 1
                                 }
                             }
                         }
                     }
 
-                    // List Render Area Layout Container
+                    // Clip List
                     Item {
                         id: listContainer
                         anchors.top: tabArea.bottom
-                        anchors.bottom: parent.bottom
+                        anchors.bottom: footer.top
                         anchors.left: parent.left
                         anchors.right: parent.right
 
@@ -363,23 +362,96 @@ PanelWindow {
                             anchors.fill: parent
                             topMargin: 8
                             bottomMargin: 48
-                            model: ctrl.filteredItems
                             spacing: 8
-                            highlightMoveDuration: 80
+                            highlightMoveDuration: 40
                             highlightFollowsCurrentItem: true
                             delegate: ClipboardDelegate {}
 
-                            // Keep track of selection position
-                            property int savedIndex: 0
+                            flickDeceleration: 4000
+                            maximumFlickVelocity: 5000
+
+                            model: ScriptModel {
+                                values: ctrl.filteredItems
+                            }
+
+                            // Raw of the item to select once the next refresh lands, and the
+                            // on-screen offset it should land at (set by a delegate before it
+                            // removes/unpins itself). Empty key means top.
+                            property string pendingSelectKey: ""
+                            property real pendingViewportOffset: 0
+
+                            // Hover re-fires onEntered when a row moves under a stationary
+                            // cursor, not just on real mouse movement — suppressed briefly
+                            // after any refresh/nav so it can't steal selection back.
+                            property bool suppressHoverSelect: false
+
+                            Timer {
+                                id: hoverSuppressTimer
+                                interval: 150
+                                onTriggered: listView.suppressHoverSelect = false
+                            }
 
                             Connections {
                                 target: ctrl
                                 function onFilteredItemsChanged() {
-                                    // Seamlessly re-apply index when array refreshes (clamps to bounds)
-                                    if (listView.count > 0) {
-                                        listView.currentIndex = Math.max(0, Math.min(listView.savedIndex, listView.count - 1));
+                                    listView.suppressHoverSelect = true;
+                                    hoverSuppressTimer.restart();
+
+                                    // Consume unconditionally (even on an empty refresh) so it
+                                    // can't stay stuck true and reset scroll on a later refresh
+                                    let openedFresh = ctrl.resetSelectionPending;
+                                    ctrl.resetSelectionPending = false;
+
+                                    let pendingKey = listView.pendingSelectKey;
+                                    let viewportOffset = listView.pendingViewportOffset;
+                                    listView.pendingSelectKey = "";
+                                    listView.pendingViewportOffset = 0;
+
+                                    if (listView.count === 0)
+                                        return;
+
+                                    let targetIndex = 0;
+                                    let restoredNeighbor = false;
+                                    if (!openedFresh && pendingKey !== "") {
+                                        let found = ctrl.filteredItems.findIndex(it => it.raw === pendingKey);
+                                        if (found > -1) {
+                                            targetIndex = found;
+                                            restoredNeighbor = true;
+                                        }
                                     }
+
+                                    // duration 0: apply instantly, no visible sweep
+                                    let prevDuration = listView.highlightMoveDuration;
+                                    listView.highlightMoveDuration = 0;
+                                    listView.currentIndex = targetIndex;
+                                    // Rows have variable height, so positionViewAtIndex (not a
+                                    // raw contentY) is what reliably lands in the right place.
+                                    // Center first to force the delegate to exist, then fine-tune
+                                    // to the exact screen slot the removed row used to occupy.
+                                    listView.positionViewAtIndex(targetIndex, restoredNeighbor ? ListView.Center : ListView.Beginning);
+                                    if (restoredNeighbor) {
+                                        let newItem = listView.itemAtIndex(targetIndex);
+                                        if (newItem) {
+                                            let maxY = Math.max(0, listView.contentHeight - listView.height);
+                                            listView.contentY = Math.max(0, Math.min(newItem.y - viewportOffset, maxY));
+                                        }
+                                    }
+                                    listView.highlightMoveDuration = prevDuration;
                                 }
+                            }
+                        }
+
+                        // Default Flickable wheel scrolling is too fine-grained; scroll manually
+                        MouseArea {
+                            anchors.fill: listView
+                            acceptedButtons: Qt.NoButton
+                            onWheel: wheel => {
+                                let delta = wheel.angleDelta.y !== 0 ? wheel.angleDelta.y : wheel.angleDelta.x;
+                                let pixels = (delta / 120) * 150;
+                                let maxY = Math.max(0, listView.contentHeight - listView.height);
+                                listView.cancelFlick();
+                                listView.contentY = Math.max(0, Math.min(listView.contentY - pixels, maxY));
+                                wheel.accepted = true;
                             }
                         }
 
@@ -398,7 +470,7 @@ PanelWindow {
                                 }
                                 GradientStop {
                                     position: 1.0
-                                    color: Theme.surface_container
+                                    color: Theme.surface_container_low
                                 }
                             }
                         }
@@ -413,6 +485,70 @@ PanelWindow {
                         font {
                             family: "Google Sans Medium"
                             pixelSize: 18
+                        }
+                    }
+
+                    // Footer
+                    Item {
+                        id: footer
+                        anchors {
+                            bottom: parent.bottom
+                            left: parent.left
+                            right: parent.right
+                        }
+                        height: 64
+
+                        Rectangle {
+                            anchors.fill: parent
+                            color: Theme.surface_container_low
+                            radius: 28
+                            Rectangle {
+                                anchors {
+                                    top: parent.top
+                                    left: parent.left
+                                    right: parent.right
+                                }
+                                height: 25
+                                color: Theme.surface_container_low
+                            }
+                        }
+
+                        Rectangle {
+                            anchors {
+                                top: parent.top
+                                left: parent.left
+                                right: parent.right
+                            }
+                            height: 1
+                            color: Theme.outline_variant
+                            opacity: 0.5
+                        }
+
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 4
+
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "Select a clip"
+                                color: Theme.on_surface_variant
+                                font {
+                                    family: "Google Sans Medium"
+                                    pixelSize: 15
+                                }
+                            }
+
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "[Tab] Switch • [Enter] Select • [P] Pin • [X] Delete • [/] Search • [Esc] Close"
+                                color: Theme.on_surface_variant
+                                opacity: 0.6
+                                font {
+                                    family: "Google Sans"
+                                    pixelSize: 11
+                                    weight: Font.Medium
+                                }
+                            }
                         }
                     }
                 }

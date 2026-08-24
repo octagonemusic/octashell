@@ -5,18 +5,20 @@ import Quickshell.Io
 Item {
     id: backend
 
-    // Configuration
     property string scriptPath: Quickshell.shellPath("scripts/cliphist-visual.sh")
     property string pinnedCachePath: "~/.local/state/quickshell/pinned_clips.json"
 
-    // State Fields
     property var allItems: []
     property var filteredItems: []
     property var pinnedRaws: []
     property string searchText: ""
     property int currentTab: 0
+    property bool resetSelectionPending: false
 
-    // UI Orchestration Signals
+    // Set by selectItem() when re-copying a pinned entry; consumed in fetchHistory
+    property bool repinTopOnRefresh: false
+    property string repinDisplayHint: ""
+
     signal openMenuRequested
     signal closeMenuRequested
 
@@ -25,16 +27,19 @@ Item {
     onSearchTextChanged: updateSearch()
     onCurrentTabChanged: updateSearch()
 
+    // Keyed by cliphist's id, not the display preview — cliphist truncates
+    // previews to 100 chars, which collides often (e.g. Google Image copies)
+    function pinKey(rawString) {
+        let tabIndex = rawString.indexOf('\t');
+        return tabIndex > -1 ? rawString.substring(0, tabIndex) : rawString;
+    }
+
+    // filteredItems has no pin state; pin icons read pinnedRaws directly
     function updateSearch() {
-        let baseList = backend.currentTab === 0 ? backend.allItems : backend.allItems.filter(item => backend.pinnedRaws.includes(item.raw));
+        let baseList = backend.currentTab === 0 ? backend.allItems : backend.allItems.filter(item => backend.pinnedRaws.includes(backend.pinKey(item.raw)));
 
         if (backend.searchText.trim() === "") {
-            backend.filteredItems = baseList.map(item => ({
-                        raw: item.raw,
-                        display: item.display,
-                        imagePath: item.imagePath,
-                        isPinned: backend.pinnedRaws.includes(item.raw)
-                    }));
+            backend.filteredItems = baseList;
             return;
         }
 
@@ -48,35 +53,41 @@ Item {
                 i++;
             }
             return j === query.length;
-        }).map(item => ({
-                    raw: item.raw,
-                    display: item.display,
-                    imagePath: item.imagePath,
-                    isPinned: backend.pinnedRaws.includes(item.raw)
-                }));
+        });
     }
 
     function togglePin(rawString) {
-        let index = backend.pinnedRaws.indexOf(rawString);
+        let key = backend.pinKey(rawString);
+        let index = backend.pinnedRaws.indexOf(key);
         if (index > -1) {
             backend.pinnedRaws.splice(index, 1);
         } else {
-            backend.pinnedRaws.push(rawString);
+            backend.pinnedRaws.push(key);
         }
         backend.pinnedRaws = [...backend.pinnedRaws];
 
         savePinnedProcess.jsonString = JSON.stringify(backend.pinnedRaws);
         savePinnedProcess.running = true;
-        updateSearch();
+
+        // Only the Pinned tab's membership depends on pin state
+        if (backend.currentTab === 1) {
+            updateSearch();
+        }
     }
 
     function selectItem(rawString) {
+        // Re-copying gives this entry a new id and would drop its pin
+        if (backend.pinnedRaws.includes(backend.pinKey(rawString))) {
+            backend.repinTopOnRefresh = true;
+            let tabIndex = rawString.indexOf('\t');
+            backend.repinDisplayHint = tabIndex > -1 ? rawString.substring(tabIndex + 1) : "";
+        }
         copyToClipboard.selectedItem = rawString;
         copyToClipboard.running = true;
     }
 
     function removeItem(rawString, itemId) {
-        let pinIndex = backend.pinnedRaws.indexOf(rawString);
+        let pinIndex = backend.pinnedRaws.indexOf(backend.pinKey(rawString));
         if (pinIndex > -1) {
             backend.pinnedRaws.splice(pinIndex, 1);
             backend.pinnedRaws = [...backend.pinnedRaws];
@@ -89,7 +100,7 @@ Item {
     }
 
     function clearUnpinnedHistory() {
-        let unpinned = backend.allItems.filter(item => !backend.pinnedRaws.includes(item.raw)).map(item => item.raw);
+        let unpinned = backend.allItems.filter(item => !backend.pinnedRaws.includes(backend.pinKey(item.raw))).map(item => item.raw);
         if (unpinned.length === 0)
             return;
 
@@ -138,9 +149,21 @@ Item {
 
                 let originalLength = backend.pinnedRaws.length;
 
-                backend.pinnedRaws = backend.pinnedRaws.filter(pinnedRaw => {
-                    return backend.allItems.some(item => item.raw === pinnedRaw);
+                backend.pinnedRaws = backend.pinnedRaws.filter(pinnedKey => {
+                    return backend.allItems.some(item => backend.pinKey(item.raw) === pinnedKey);
                 });
+
+                if (backend.repinTopOnRefresh) {
+                    let top = backend.allItems[0];
+                    // Confirm it's actually the entry we copied, not something else
+                    if (top && top.display === backend.repinDisplayHint) {
+                        let topKey = backend.pinKey(top.raw);
+                        if (!backend.pinnedRaws.includes(topKey))
+                            backend.pinnedRaws = [...backend.pinnedRaws, topKey];
+                    }
+                    backend.repinTopOnRefresh = false;
+                    backend.repinDisplayHint = "";
+                }
 
                 if (backend.pinnedRaws.length !== originalLength) {
                     savePinnedProcess.jsonString = JSON.stringify(backend.pinnedRaws);

@@ -9,19 +9,40 @@ Item {
 
     property bool isSelected: ListView.isCurrentItem
     property bool isHovered: itemMouseArea.containsMouse
+    // Read live from the backend so toggling a pin never touches the list model
+    property bool isPinned: ctrl.pinnedRaws.includes(ctrl.pinKey(modelData.raw))
 
     function select() {
         ctrl.selectItem(modelData.raw);
     }
 
+    // Raw of the neighbor to select once this item is removed (index isn't
+    // reliable since removal is async)
+    function neighborKey() {
+        let list = ctrl.filteredItems;
+        let next = list[index + 1];
+        let prev = list[index - 1];
+        return next ? next.raw : (prev ? prev.raw : "");
+    }
+
+    function markPendingRestore() {
+        let view = delegateRoot.ListView.view;
+        view.pendingSelectKey = neighborKey();
+        // Screen offset of this row, so the replacement can be placed here too
+        view.pendingViewportOffset = delegateRoot.y - view.contentY;
+    }
+
     function remove() {
-        delegateRoot.ListView.view.savedIndex = index; // Save current spot
+        markPendingRestore();
         let id = modelData.raw.split('\t')[0];
         ctrl.removeItem(modelData.raw, id);
     }
 
     function togglePinState() {
-        delegateRoot.ListView.view.savedIndex = index; // Save current spot
+        // Unpinning from the Pinned tab removes this item from view
+        if (ctrl.currentTab === 1) {
+            markPendingRestore();
+        }
         ctrl.togglePin(modelData.raw);
     }
 
@@ -61,8 +82,7 @@ Item {
 
         Rectangle {
             id: imgMask
-            width: imgPreview.width
-            height: imgPreview.height
+            anchors.fill: imgPreview
             radius: 8
             visible: false
             layer.enabled: true
@@ -80,8 +100,8 @@ Item {
             anchors.rightMargin: 16
             anchors.topMargin: 8
             anchors.bottomMargin: 8
-            fillMode: Image.PreserveAspectFit
-            horizontalAlignment: Image.AlignLeft
+            fillMode: Image.PreserveAspectCrop
+            clip: true
             asynchronous: true
         }
 
@@ -122,7 +142,7 @@ Item {
             anchors.rightMargin: 4
             anchors.verticalCenter: parent.verticalCenter
 
-            color: modelData.isPinned ? Theme.primary : (pinMouseArea.containsMouse ? Theme.surface_container_highest : "transparent")
+            color: delegateRoot.isPinned ? Theme.primary : (pinMouseArea.containsMouse ? Theme.surface_container_highest : "transparent")
 
             scale: pinMouseArea.pressed ? 0.85 : (pinMouseArea.containsMouse ? 1.1 : 1.0)
             Behavior on scale {
@@ -137,7 +157,7 @@ Item {
                 text: "push_pin"
                 font.family: "Material Symbols Rounded"
                 font.pixelSize: 22
-                color: modelData.isPinned ? Theme.on_primary : (pinMouseArea.containsMouse ? Theme.on_surface : Theme.on_surface_variant)
+                color: delegateRoot.isPinned ? Theme.on_primary : (pinMouseArea.containsMouse ? Theme.on_surface : Theme.on_surface_variant)
             }
 
             MouseArea {
@@ -214,7 +234,10 @@ Item {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onEntered: delegateRoot.ListView.view.currentIndex = index
+            onEntered: {
+                if (!delegateRoot.ListView.view.suppressHoverSelect)
+                    delegateRoot.ListView.view.currentIndex = index;
+            }
             onClicked: delegateRoot.select()
         }
     }
