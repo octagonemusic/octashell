@@ -40,10 +40,8 @@ function parseEmojiJson(textBody) {
     dynamicAllItems.push({
       emoji: key,
       display: displayDesc,
-      category: "All",
       // Flatten display name and tags into one searchable string
       searchString: (displayDesc + " " + tags.join(" ")).toLowerCase(),
-      score: 0,
     });
   });
 

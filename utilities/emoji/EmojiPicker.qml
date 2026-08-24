@@ -32,13 +32,7 @@ PanelWindow {
                 closeMenu();
                 return;
             }
-            if (ctrl.allItems.length === 0) {
-                // Controller handles initialization fallback internally
-                triggerSearch();
-            } else {
-                triggerSearch();
-            }
-
+            ctrl.triggerSearch();
             ctrl.searchText = "";
             ctrl.selectionBuffer = "";
             ctrl.currentCategory = "Recents";
@@ -79,6 +73,29 @@ PanelWindow {
                     ctrl.currentEmojiName = gridView.currentItem ? gridView.currentItem.emojiName : "";
                 }
 
+                // Shared grid navigation, used by both the panel-level and search-field key handlers
+                function navigateDown() {
+                    gridView.moveCurrentIndexDown();
+                    updateEmojiLabel();
+                }
+                function navigateUp() {
+                    gridView.moveCurrentIndexUp();
+                    updateEmojiLabel();
+                }
+                function navigateLeft() {
+                    gridView.moveCurrentIndexLeft();
+                    updateEmojiLabel();
+                }
+                function navigateRight() {
+                    gridView.moveCurrentIndexRight();
+                    updateEmojiLabel();
+                }
+                function selectCurrent(shiftHeld) {
+                    if (gridView.currentItem) {
+                        ctrl.processSelection(gridView.currentItem.emojiChar, shiftHeld);
+                    }
+                }
+
                 HyprlandFocusGrab {
                     id: focusGrab
                     windows: [emojiWindow]
@@ -110,15 +127,6 @@ PanelWindow {
                 }
 
                 Rectangle {
-                    id: mainUiMask
-                    anchors.fill: mainUi
-                    radius: 28
-                    color: "black"
-                    visible: false
-                    layer.enabled: true
-                }
-
-                Rectangle {
                     id: mainUi
                     anchors.fill: parent
                     color: Theme.surface
@@ -138,33 +146,27 @@ PanelWindow {
                             break;
                         case Qt.Key_Down:
                         case Qt.Key_J:
-                            gridView.moveCurrentIndexDown();
-                            updateEmojiLabel();
+                            navigateDown();
                             event.accepted = true;
                             break;
                         case Qt.Key_Up:
                         case Qt.Key_K:
-                            gridView.moveCurrentIndexUp();
-                            updateEmojiLabel();
+                            navigateUp();
                             event.accepted = true;
                             break;
                         case Qt.Key_Left:
                         case Qt.Key_H:
-                            gridView.moveCurrentIndexLeft();
-                            updateEmojiLabel();
+                            navigateLeft();
                             event.accepted = true;
                             break;
                         case Qt.Key_Right:
                         case Qt.Key_L:
-                            gridView.moveCurrentIndexRight();
-                            updateEmojiLabel();
+                            navigateRight();
                             event.accepted = true;
                             break;
                         case Qt.Key_Enter:
                         case Qt.Key_Return:
-                            if (gridView.currentItem) {
-                                ctrl.processSelection(gridView.currentItem.emojiChar, (event.modifiers & Qt.ShiftModifier) !== 0);
-                            }
+                            selectCurrent((event.modifiers & Qt.ShiftModifier) !== 0);
                             event.accepted = true;
                             break;
                         case Qt.Key_Slash:
@@ -297,23 +299,19 @@ PanelWindow {
                         Keys.onPressed: event => {
                             switch (event.key) {
                             case Qt.Key_Down:
-                                gridView.moveCurrentIndexDown();
-                                updateEmojiLabel();
+                                navigateDown();
                                 event.accepted = true;
                                 break;
                             case Qt.Key_Up:
-                                gridView.moveCurrentIndexUp();
-                                updateEmojiLabel();
+                                navigateUp();
                                 event.accepted = true;
                                 break;
                             case Qt.Key_Left:
-                                gridView.moveCurrentIndexLeft();
-                                updateEmojiLabel();
+                                navigateLeft();
                                 event.accepted = true;
                                 break;
                             case Qt.Key_Right:
-                                gridView.moveCurrentIndexRight();
-                                updateEmojiLabel();
+                                navigateRight();
                                 event.accepted = true;
                                 break;
                             case Qt.Key_Tab:
@@ -322,9 +320,7 @@ PanelWindow {
                                 break;
                             case Qt.Key_Enter:
                             case Qt.Key_Return:
-                                if (gridView.currentItem) {
-                                    ctrl.processSelection(gridView.currentItem.emojiChar, event.modifiers & Qt.ShiftModifier);
-                                }
+                                selectCurrent((event.modifiers & Qt.ShiftModifier) !== 0);
                                 event.accepted = true;
                                 break;
                             case Qt.Key_Escape:
@@ -336,6 +332,7 @@ PanelWindow {
                     }
 
                     // Categories
+                    // Fixed set of tabs ("All", "Recents") — always fits, so no scrolling needed.
                     Item {
                         id: categoryTabsContainer
                         anchors {
@@ -348,77 +345,55 @@ PanelWindow {
                         }
                         height: 48
 
-                        MouseArea {
-                            anchors.fill: parent
-                            acceptedButtons: Qt.NoButton
-                            onWheel: wheel => {
-                                let delta = wheel.angleDelta.x !== 0 ? wheel.angleDelta.x : wheel.angleDelta.y;
-                                let target = smoothScrollAnim.running ? smoothScrollAnim.to : categoryList.contentX;
-                                let max = Math.max(0, categoryList.contentWidth - categoryList.width);
-                                smoothScrollAnim.to = Math.max(0, Math.min(target - delta, max));
-                                smoothScrollAnim.start();
-                            }
-                        }
-
-                        ListView {
-                            id: categoryList
+                        Row {
                             anchors {
                                 top: parent.top
                                 bottom: parent.bottom
                                 horizontalCenter: parent.horizontalCenter
                             }
-                            width: Math.min(contentWidth, parent.width)
-                            orientation: ListView.Horizontal
                             spacing: 12
-                            boundsBehavior: Flickable.StopAtBounds
-                            model: ctrl.categories
-                            onMovementStarted: smoothScrollAnim.stop()
 
-                            NumberAnimation {
-                                id: smoothScrollAnim
-                                target: categoryList
-                                property: "contentX"
-                                duration: 350
-                                easing.type: Easing.OutQuart
-                            }
+                            Repeater {
+                                model: ctrl.categories
 
-                            delegate: Rectangle {
-                                property bool isSelected: modelData === ctrl.currentCategory
-                                height: 36
-                                width: tabText.width + 32
-                                anchors.verticalCenter: parent.verticalCenter
-                                radius: 18
-                                color: isSelected ? Theme.primary : Theme.surface_container_high
-                                border {
-                                    width: isSelected ? 0 : 1
-                                    color: Theme.outline_variant
-                                }
-
-                                Text {
-                                    id: tabText
-                                    anchors.centerIn: parent
-                                    text: modelData
-                                    color: isSelected ? Theme.on_primary : Theme.on_surface_variant
-                                    font {
-                                        family: "Google Sans"
-                                        pixelSize: 14
-                                        weight: isSelected ? Font.DemiBold : Font.Medium
+                                Rectangle {
+                                    property bool isSelected: modelData === ctrl.currentCategory
+                                    height: 36
+                                    width: tabText.width + 32
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    radius: 18
+                                    color: isSelected ? Theme.primary : Theme.surface_container_high
+                                    border {
+                                        width: isSelected ? 0 : 1
+                                        color: Theme.outline_variant
                                     }
-                                }
 
-                                MouseArea {
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        if (searchField.text !== "")
-                                            searchField.text = "";
-                                        ctrl.currentCategory = modelData;
+                                    Text {
+                                        id: tabText
+                                        anchors.centerIn: parent
+                                        text: modelData
+                                        color: isSelected ? Theme.on_primary : Theme.on_surface_variant
+                                        font {
+                                            family: "Google Sans"
+                                            pixelSize: 14
+                                            weight: isSelected ? Font.DemiBold : Font.Medium
+                                        }
                                     }
-                                }
-                                Behavior on color {
-                                    ColorAnimation {
-                                        duration: 150
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            if (searchField.text !== "")
+                                                searchField.text = "";
+                                            ctrl.currentCategory = modelData;
+                                        }
+                                    }
+                                    Behavior on color {
+                                        ColorAnimation {
+                                            duration: 150
+                                        }
                                     }
                                 }
                             }
@@ -452,15 +427,8 @@ PanelWindow {
                             clip: true
                             highlightMoveDuration: 120
                             highlightFollowsCurrentItem: true
-                            opacity: ctrl.isSearchingState ? 0.4 : 1.0
                             onCurrentIndexChanged: updateEmojiLabel()
 
-                            Behavior on opacity {
-                                NumberAnimation {
-                                    duration: 120
-                                    easing.type: Easing.OutQuad
-                                }
-                            }
                             delegate: EmojiDelegate {}
                         }
 
@@ -564,7 +532,7 @@ PanelWindow {
                         id: emptyMessage
                         anchors.centerIn: listContainer
                         text: ctrl.currentCategory === "Recents" && ctrl.recentItems.length === 0 ? "No recent emojis" : "No emojis found 🥲"
-                        visible: ctrl.filteredItems.length === 0 && !ctrl.isSearchingState
+                        visible: ctrl.filteredItems.length === 0
                         color: Theme.on_surface_variant
                         font {
                             family: "Google Sans Medium"

@@ -15,14 +15,8 @@ Item {
 
     property real targetScale: itemMouseArea.pressed ? 0.85 : (isSelected ? 1.1 : (isHovered ? 1.05 : 1.0))
 
-    Behavior on targetScale {
-        NumberAnimation {
-            duration: 180
-            easing.type: Easing.OutQuad
-            easing.overshoot: 1.8
-        }
-    }
-
+    // Background pill scales for the hover/press/select "pop"; the emoji glyph below
+    // stays unscaled so its native-rendered bitmap never gets blurred by upscaling.
     Rectangle {
         anchors.centerIn: parent
 
@@ -30,35 +24,42 @@ Item {
         width: 52
         height: 52
         radius: 16
+        scale: delegateRoot.targetScale
 
-        color: delegateRoot.isSelected ? Theme.primary_container : (delegateRoot.isHovered ? Theme.surface_container_highest : "transparent")
-
-        Text {
-            anchors.centerIn: parent
-
-            text: delegateRoot.emojiChar
-
-            font {
-                family: "Noto Color Emoji"
-                pixelSize: 28
+        Behavior on scale {
+            NumberAnimation {
+                duration: 180
+                easing.type: Easing.OutQuad
+                easing.overshoot: 1.8
             }
-
-            renderType: Text.NativeRendering
         }
 
-        MouseArea {
-            id: itemMouseArea
+        color: delegateRoot.isSelected ? Theme.primary_container : (delegateRoot.isHovered ? Theme.surface_container_highest : "transparent")
+    }
 
-            anchors.fill: parent
+    Text {
+        anchors.centerIn: parent
 
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
+        text: delegateRoot.emojiChar
 
-            onEntered: delegateRoot.GridView.view.currentIndex = index
+        font {
+            family: "Noto Color Emoji"
+            pixelSize: 28
+        }
+    }
 
-            onClicked: mouse => {
-                emojiWindow.processSelection(delegateRoot.emojiChar, mouse.modifiers & Qt.ShiftModifier);
-            }
+    MouseArea {
+        id: itemMouseArea
+
+        anchors.fill: parent
+
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+
+        onEntered: delegateRoot.GridView.view.currentIndex = index
+
+        onClicked: mouse => {
+            emojiWindow.processSelection(delegateRoot.emojiChar, mouse.modifiers & Qt.ShiftModifier);
         }
     }
 }

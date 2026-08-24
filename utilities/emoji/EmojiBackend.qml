@@ -20,7 +20,6 @@ Item {
     // UI-Facing State
     property var categories: ["All", "Recents"]
     property string currentCategory: "Recents"
-    property bool isSearchingState: false
     property string currentEmojiName: ""
     property string searchText: ""
 
@@ -32,21 +31,11 @@ Item {
     onSearchTextChanged: triggerSearch()
 
     function triggerSearch() {
-        backend.isSearchingState = true;
-        performSearch();
-    }
-
-    function performSearch() {
         let queryStr = backend.searchText.trim();
         let isSearching = queryStr !== "";
         let baseItems = (isSearching || backend.currentCategory === "All") ? backend.allItems : backend.recentItems;
 
-        if (!isSearching) {
-            backend.filteredItems = baseItems;
-        } else {
-            backend.filteredItems = Logic.filterEmojis(baseItems, queryStr);
-        }
-        backend.isSearchingState = false;
+        backend.filteredItems = isSearching ? Logic.filterEmojis(baseItems, queryStr) : baseItems;
     }
 
     function saveRecentsToDisk() {
