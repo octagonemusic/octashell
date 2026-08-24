@@ -58,6 +58,13 @@ PanelWindow {
         return -1;
     }
 
+    function isHiddenApp(name) {
+        if (!name)
+            return false;
+        var nameLower = name.toLowerCase();
+        return hiddenKeywords.some(keyword => nameLower.includes(keyword));
+    }
+
     function buildFilteredList() {
         var allApps = DesktopEntries.applications.values;
         var query = ctrl.searchText.trim();
@@ -65,12 +72,7 @@ PanelWindow {
 
         if (query === "") {
             // No query: show all apps, but completely hide any app matching hiddenKeywords
-            return allApps.filter(app => {
-                if (!app.name)
-                    return false;
-                var n = app.name.toLowerCase();
-                return !hiddenKeywords.some(keyword => n.includes(keyword));
-            }).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+            return allApps.filter(app => !launcherWindow.isHiddenApp(app.name)).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
         }
 
         // Check if the user's search explicitly contains any of the hidden keywords
@@ -81,10 +83,7 @@ PanelWindow {
             var entry = allApps[i];
 
             // Hide apps matching hiddenKeywords unless explicitly searched for
-            var nameLower = entry.name ? entry.name.toLowerCase() : "";
-            var isHiddenApp = hiddenKeywords.some(keyword => nameLower.includes(keyword));
-
-            if (isHiddenApp && !isSearchingHidden) {
+            if (launcherWindow.isHiddenApp(entry.name) && !isSearchingHidden) {
                 continue;
             }
 
@@ -232,10 +231,25 @@ PanelWindow {
                         height: 180
 
                         Image {
+                            id: bannerImage
+
+                            // use thumbnail if available for efficiency
+                            readonly property string thumbDir: (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/quickshell/thumbs"
+                            readonly property string wallpaperFileName: {
+                                var path = Theme.wallpaper.replace("file://", "");
+                                return path.substring(path.lastIndexOf("/") + 1);
+                            }
+                            readonly property string thumbUrl: wallpaperFileName !== "" ? "file://" + thumbDir + "/" + encodeURIComponent(wallpaperFileName) + ".jpg" : ""
+
                             anchors.fill: parent
-                            source: Theme.wallpaper
+                            source: thumbUrl !== "" ? thumbUrl : Theme.wallpaper
                             fillMode: Image.PreserveAspectCrop
                             asynchronous: true
+
+                            onStatusChanged: {
+                                if (status === Image.Error && source !== Theme.wallpaper)
+                                    source = Theme.wallpaper;
+                            }
                         }
 
                         Rectangle {

@@ -11,8 +11,8 @@ Item {
 
     property string searchText: ""
 
-    // CHANGE THIS TO YOUR ACTUAL TERMINAL
-    property string myTerminal: "kitty"
+    // Respects $TERMINAL if set, falls back to a common default otherwise
+    property string myTerminal: Quickshell.env("TERMINAL") || "xterm"
 
     function launchApp(desktopEntry) {
         var finalCommand = [];
