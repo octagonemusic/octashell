@@ -26,10 +26,7 @@ Item {
     }
 
     function markPendingRestore() {
-        let view = delegateRoot.ListView.view;
-        view.pendingSelectKey = neighborKey();
-        // Screen offset of this row, so the replacement can be placed here too
-        view.pendingViewportOffset = delegateRoot.y - view.contentY;
+        delegateRoot.ListView.view.pendingSelectKey = neighborKey();
     }
 
     function remove() {

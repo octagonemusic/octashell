@@ -27,8 +27,8 @@ Item {
     onSearchTextChanged: updateSearch()
     onCurrentTabChanged: updateSearch()
 
-    // Keyed by cliphist's id, not the display preview — cliphist truncates
-    // previews to 100 chars, which collides often (e.g. Google Image copies)
+    // Keyed by cliphist's id, not the display preview. Previews are
+    // truncated to 100 chars and collide often (e.g. Google Image copies).
     function pinKey(rawString) {
         let tabIndex = rawString.indexOf('\t');
         return tabIndex > -1 ? rawString.substring(0, tabIndex) : rawString;
@@ -94,17 +94,26 @@ Item {
             savePinnedProcess.jsonString = JSON.stringify(backend.pinnedRaws);
             savePinnedProcess.running = true;
         }
+
+        // Splice locally instead of a full cliphist-visual.sh rescan.
+        // Next menu open reconciles with the real state.
+        backend.allItems = backend.allItems.filter(item => item.raw !== rawString);
+        backend.updateSearch();
+
         deleteEntry.targetRaw = rawString;
         deleteEntry.targetId = itemId;
         deleteEntry.running = true;
     }
 
     function clearUnpinnedHistory() {
-        let unpinned = backend.allItems.filter(item => !backend.pinnedRaws.includes(backend.pinKey(item.raw))).map(item => item.raw);
-        if (unpinned.length === 0)
+        let unpinnedRaws = backend.allItems.filter(item => !backend.pinnedRaws.includes(backend.pinKey(item.raw))).map(item => item.raw);
+        if (unpinnedRaws.length === 0)
             return;
 
-        clearHistoryProcess.unpinnedList = unpinned.join('\n');
+        backend.allItems = backend.allItems.filter(item => unpinnedRaws.indexOf(item.raw) === -1);
+        backend.updateSearch();
+
+        clearHistoryProcess.unpinnedList = unpinnedRaws.join('\n');
         clearHistoryProcess.running = true;
     }
 
@@ -196,7 +205,6 @@ Item {
             if (!running && targetRaw !== "") {
                 targetRaw = "";
                 targetId = "";
-                fetchHistory.running = true;
             }
         }
     }
@@ -208,7 +216,6 @@ Item {
         onRunningChanged: {
             if (!running && unpinnedList !== "") {
                 unpinnedList = "";
-                fetchHistory.running = true;
             }
         }
     }

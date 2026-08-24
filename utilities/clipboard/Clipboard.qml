@@ -374,15 +374,13 @@ PanelWindow {
                                 values: ctrl.filteredItems
                             }
 
-                            // Raw of the item to select once the next refresh lands, and the
-                            // on-screen offset it should land at (set by a delegate before it
-                            // removes/unpins itself). Empty key means top.
+                            // Raw of the item to select once the next refresh lands (set by a
+                            // delegate before it removes/unpins itself). Empty means top.
                             property string pendingSelectKey: ""
-                            property real pendingViewportOffset: 0
 
                             // Hover re-fires onEntered when a row moves under a stationary
-                            // cursor, not just on real mouse movement — suppressed briefly
-                            // after any refresh/nav so it can't steal selection back.
+                            // cursor, not just on real mouse movement. Suppressed briefly
+                            // after any refresh or nav so it can't steal selection back.
                             property bool suppressHoverSelect: false
 
                             Timer {
@@ -403,9 +401,7 @@ PanelWindow {
                                     ctrl.resetSelectionPending = false;
 
                                     let pendingKey = listView.pendingSelectKey;
-                                    let viewportOffset = listView.pendingViewportOffset;
                                     listView.pendingSelectKey = "";
-                                    listView.pendingViewportOffset = 0;
 
                                     if (listView.count === 0)
                                         return;
@@ -424,18 +420,9 @@ PanelWindow {
                                     let prevDuration = listView.highlightMoveDuration;
                                     listView.highlightMoveDuration = 0;
                                     listView.currentIndex = targetIndex;
-                                    // Rows have variable height, so positionViewAtIndex (not a
-                                    // raw contentY) is what reliably lands in the right place.
-                                    // Center first to force the delegate to exist, then fine-tune
-                                    // to the exact screen slot the removed row used to occupy.
-                                    listView.positionViewAtIndex(targetIndex, restoredNeighbor ? ListView.Center : ListView.Beginning);
-                                    if (restoredNeighbor) {
-                                        let newItem = listView.itemAtIndex(targetIndex);
-                                        if (newItem) {
-                                            let maxY = Math.max(0, listView.contentHeight - listView.height);
-                                            listView.contentY = Math.max(0, Math.min(newItem.y - viewportOffset, maxY));
-                                        }
-                                    }
+                                    // Contain only scrolls if the target isn't already visible.
+                                    // A delete/unpin removes one row locally, so this is usually a no-op.
+                                    listView.positionViewAtIndex(targetIndex, restoredNeighbor ? ListView.Contain : ListView.Beginning);
                                     listView.highlightMoveDuration = prevDuration;
                                 }
                             }
