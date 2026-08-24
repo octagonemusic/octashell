@@ -126,18 +126,19 @@ Rectangle {
         return ws.filter(w => w.id >= 1 && w.monitor?.name === root.targetMonitor).sort((a, b) => a.id - b.id);
     }
 
-    // Focused workspace.
-    readonly property var focusedWorkspace: {
-        for (let i = 0; i < sortedWorkspaces.length; i++) {
-            if (sortedWorkspaces[i].focused)
-                return sortedWorkspaces[i];
-        }
-        for (let i = 0; i < sortedWorkspaces.length; i++) {
-            if (sortedWorkspaces[i].active)
-                return sortedWorkspaces[i];
+    // The monitor object for this bar instance — the authoritative source for
+    // "what workspace is current here", rather than scanning workspace flags.
+    readonly property var currentMonitor: {
+        var mons = Hyprland.monitors.values;
+        for (var m = 0; m < mons.length; m++) {
+            if (mons[m].name === root.targetMonitor)
+                return mons[m];
         }
         return null;
     }
+
+    // Active workspace on this monitor, read directly from the monitor object.
+    readonly property var focusedWorkspace: currentMonitor ? currentMonitor.activeWorkspace : null
 
     // Active workspace item.
     readonly property Item currentActiveDot: {
@@ -159,6 +160,7 @@ Rectangle {
     Component.onCompleted: {
         Hyprland.refreshToplevels();
         Hyprland.refreshWorkspaces();
+        Hyprland.refreshMonitors();
         Qt.callLater(() => {
             root.isLoaded = true;
         });
@@ -170,6 +172,11 @@ Rectangle {
             if (event.name === "openwindow" || event.name === "closewindow" || event.name === "movewindow") {
                 Hyprland.refreshToplevels();
                 Hyprland.refreshWorkspaces();
+            } else if (event.name === "workspace" || event.name === "workspacev2"
+                       || event.name === "focusedmon" || event.name === "focusedmonv2"
+                       || event.name === "moveworkspace" || event.name === "moveworkspacev2") {
+                Hyprland.refreshWorkspaces();
+                Hyprland.refreshMonitors();
             }
         }
     }
