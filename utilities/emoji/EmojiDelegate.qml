@@ -15,8 +15,6 @@ Item {
 
     property real targetScale: itemMouseArea.pressed ? 0.85 : (isSelected ? 1.1 : (isHovered ? 1.05 : 1.0))
 
-    // Background pill scales for the hover/press/select "pop"; the emoji glyph below
-    // stays unscaled so its native-rendered bitmap never gets blurred by upscaling.
     Rectangle {
         anchors.centerIn: parent
 
